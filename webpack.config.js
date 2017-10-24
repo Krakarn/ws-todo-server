@@ -16,7 +16,7 @@ fs.readdirSync('node_modules')
 module.exports = {
   entry: cfg.paths.entry,
   target: 'node',
-  devtool: 'source-map',
+  devtool: 'inline-source-map',
   output: {
     path: path.join(__dirname, cfg.paths.dist),
     filename: cfg.paths.outFile
@@ -32,7 +32,8 @@ module.exports = {
   },
   plugins: [
     new webpack.BannerPlugin({
-      banner: 'require("source-map-support").install();',
+      banner: `require("source-map-support").install({
+      });`,
       raw: true,
       entryOnly: false,
     }),

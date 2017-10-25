@@ -1,9 +1,11 @@
 import { Expression } from '../lang/syntax';
 export { Expression } from '../lang/syntax';
 
-export abstract class LiteralExpression<T, U> extends Expression<T, U> {}
+import { IEvaluationState } from '../lang/evaluation-state';
 
-export class PrimitiveExpression<T, U> extends LiteralExpression<T, U> {
+export abstract class LiteralExpression<T extends IEvaluationState, U> extends Expression<T, U> {}
+
+export class PrimitiveExpression<T extends IEvaluationState, U> extends LiteralExpression<T, U> {
   public value: U;
 
   constructor(value: U) {
@@ -25,7 +27,7 @@ export class PrimitiveExpression<T, U> extends LiteralExpression<T, U> {
   }
 }
 
-export class ListExpression<T, U> extends LiteralExpression<T, U[]> {
+export class ListExpression<T extends IEvaluationState, U> extends LiteralExpression<T, U[]> {
   public expressions: Expression<T, U>[];
 
   constructor(expressions: Expression<T, U>[]) {
@@ -46,7 +48,7 @@ export class ListExpression<T, U> extends LiteralExpression<T, U[]> {
   }
 }
 
-export class IdentifierExpression<T, U> extends Expression<T, U> {
+export class IdentifierExpression<T extends IEvaluationState, U> extends Expression<T, U> {
   public identifier: string;
 
   constructor(identifier: string) {
@@ -63,41 +65,123 @@ export class IdentifierExpression<T, U> extends Expression<T, U> {
   }
 }
 
-export class ApplyExpression<T, U, V, W> extends Expression<T, W> {
-  public objectExpression: Expression<T, U> | void;
-  public identifierExpression: Expression<T, any>;
-  public valueExpression: Expression<T, V>;
-  public operatorExpression: Expression<T, (object: U, identifier: any, value: V) => W>;
+export class LetExpression<T extends IEvaluationState, U, V> extends Expression<T, V> {
+  public boundExpression: Expression<T, U>;
+  public functionExpression: FunctionExpression<T, U, V>;
 
   constructor(
-    objectExpression: Expression<T, U> | void,
-    identifierExpression: Expression<T, any>,
-    valueExpression: Expression<T, V>,
-    operatorExpression: Expression<T, (object: U, identifier: any, value: V) => W>,
+    boundExpression: Expression<T, U>,
+    functionExpression: FunctionExpression<T, U, V>,
   ) {
     super();
-    this.objectExpression = objectExpression;
-    this.identifierExpression = identifierExpression;
-    this.valueExpression = valueExpression;
-    this.operatorExpression = operatorExpression;
+    this.boundExpression = boundExpression;
+    this.functionExpression = functionExpression;
   }
 
   public evaluate(state: T) {
-    const object = this.objectExpression ?
-      this.objectExpression.evaluate(state) :
-      state as any
-    ;
-    const identifier = this.identifierExpression.evaluate(state);
-    const value = this.valueExpression.evaluate(state);
-    const operator = this.operatorExpression.evaluate(state);
+    const boundValue = this.boundExpression.evaluate(state);
+    const f = this.functionExpression.evaluate(state);
 
-    return operator(object, identifier, value);
+    return f(boundValue);
   }
 
   public toString() {
-    return `${this.objectExpression ?
-      `(${this.objectExpression.toString()}[${this.identifierExpression.toString()}]` :
-      `(${this.identifierExpression.toString()}`
-    } ${this.operatorExpression.toString()} ${this.valueExpression.toString()})`;
+    return `let ${this.functionExpression.parameterIdentifier} = ${
+      this.boundExpression.toString()
+    } in ${this.functionExpression.bodyExpression.toString()}`;
+  }
+}
+
+export class FunctionExpression<
+  T extends IEvaluationState,
+  U,
+  V
+> extends Expression<T, (parameter: U) => V> {
+  public parameterIdentifier: string;
+  public bodyExpression: Expression<T, V>;
+
+  constructor(
+    parameterIdentifier: string,
+    bodyExpression: Expression<T, V>,
+  ) {
+    super();
+
+    this.parameterIdentifier = parameterIdentifier;
+    this.bodyExpression = bodyExpression;
+  }
+
+  public evaluate(state: T) {
+    return (parameter: U) => {
+      const clonedState = state.clone() as T;
+
+      clonedState[this.parameterIdentifier] = parameter;
+
+      return this.bodyExpression.evaluate(clonedState);
+    };
+  }
+
+  public toString() {
+    return `\\${this.parameterIdentifier} -> ${this.bodyExpression.toString()}`;
+  }
+}
+
+export abstract class WrappedExpression<
+  T extends IEvaluationState,
+  U
+> extends Expression<T, U> {
+  public innerExpression: Expression<T, U>;
+
+  constructor(innerExpression: Expression<T, U>) {
+    super();
+
+    this.innerExpression = innerExpression;
+  }
+
+  public evaluate(state) {
+    return this.innerExpression.evaluate(state);
+  }
+}
+
+export class GroupExpression<
+  T extends IEvaluationState,
+  U
+> extends WrappedExpression<T, U> {
+  public toString() {
+    return `(${this.innerExpression.toString()})`;
+  }
+}
+
+export class ApplyExpression<
+  T extends IEvaluationState,
+  U,
+  V
+> extends Expression<T, V> {
+  public functionExpression: Expression<T, (u: U) => V>;
+  public argumentExpression: Expression<T, U>;
+
+  constructor(
+    functionExpression: Expression<T, (u: U) => V>,
+    argumentExpression: Expression<T, U>,
+  ) {
+    super();
+
+    this.functionExpression = functionExpression;
+    this.argumentExpression = argumentExpression;
+  }
+
+  public evaluate(state) {
+    const f = this.functionExpression.evaluate(state);
+
+    if (typeof f !== 'function') {
+      throw new Error(`Type Error: Trying to apply to a non-function`);
+    }
+
+    const argument = this.argumentExpression.evaluate(state);
+
+    return f(argument);
+  }
+
+  public toString() {
+    return `${this.functionExpression.toString()} ${this.argumentExpression.toString()}`;
   }
 }

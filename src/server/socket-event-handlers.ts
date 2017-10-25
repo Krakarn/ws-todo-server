@@ -16,6 +16,24 @@ const handleError = (socket: WebSocket, error: string) => {
   console.error('Client error:', error);
 };
 
+const _try = <T>(socket: WebSocket, f: (...args: any[]) => T): T => {
+  try {
+    return f();
+  } catch (e) {
+    const errorBegin = 'Error parsing client message: ';
+    const error = `${errorBegin} ${e.message}`;
+
+    console.error(errorBegin, e);
+
+    const response: IServerErrorMessage = {
+      type: ServerMessageType.Error,
+      error
+    };
+
+    socket.send(JSON.stringify(response));
+  }
+};
+
 const socketEventHandlers: {[event:string]: (
   socket: WebSocket,
   payload?: WebSocket.Data,
@@ -23,7 +41,7 @@ const socketEventHandlers: {[event:string]: (
   [SocketEvent.Open]: () => console.log('Client connected.'),
 
   [SocketEvent.Message]: (socket, message) => {
-    try {
+    _try(socket, () => {
       const clientMessage = stringToClientMessage(message.toString());
 
       console.log('Client message received:', clientMessage);
@@ -34,23 +52,14 @@ const socketEventHandlers: {[event:string]: (
         throw new Error(`Unhandled client message type ${clientMessage.type}`);
       }
 
-      const response = clientMessageHandler(clientMessage);
+      setTimeout(() => {
+        _try(socket, () => {
+          const response = clientMessageHandler(clientMessage);
 
-      socket.send(JSON.stringify(response));
-
-    } catch (e) {
-      const errorBegin = 'Error parsing client message: ';
-      const error = `${errorBegin} ${e.message}`;
-
-      console.error(errorBegin, e);
-
-      const response: IServerErrorMessage = {
-        type: ServerMessageType.Error,
-        error
-      };
-
-      socket.send(JSON.stringify(response));
-    }
+          socket.send(JSON.stringify(response));
+        });
+      }, 0);
+    });
   },
 
   [SocketEvent.Close]: () => console.log('Client disconnected.'),

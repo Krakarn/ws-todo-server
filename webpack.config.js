@@ -16,10 +16,11 @@ fs.readdirSync('node_modules')
 module.exports = {
   entry: cfg.paths.entry,
   target: 'node',
-  devtool: 'inline-source-map',
+  devtool: 'source-map',
   output: {
     path: path.join(__dirname, cfg.paths.dist),
-    filename: cfg.paths.outFile
+    filename: cfg.paths.outFile,
+    sourceMapFilename: cfg.paths.outSourceMapFile,
   },
   resolve: {
     extensions: ['.ts', '.js', '.json'],

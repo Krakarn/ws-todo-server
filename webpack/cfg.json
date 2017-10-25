@@ -2,6 +2,7 @@
   "paths": {
     "entry": "./src/index.ts",
     "dist": "./dist",
-    "outFile": "index.js"
+    "outFile": "index.js",
+    "outSourceMapFile": "index.map.js"
   }
 }

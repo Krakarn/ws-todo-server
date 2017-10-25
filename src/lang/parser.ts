@@ -1,3 +1,8 @@
+import {
+  IObject,
+  oMap,
+} from '../pure';
+
 import { IToken } from './tokenizer';
 
 export interface IParserState {
@@ -22,7 +27,23 @@ export interface IParser<T> {
   (state: IParserState): T;
 }
 
-const cloneParserState = (state: IParserState) => ({
+export const parseMap = <T, U>(
+  parser: IParser<T>,
+  mapFn: (result: T) => U
+): IParser<U> => state =>
+  mapFn(parser(state))
+;
+
+export const parseSequence = <T>(
+  parsers: IParser<T>[]
+): IParser<T[]> => state =>
+  parsers.reduce((acc, parser) =>
+    acc.concat([parser(state)]),
+    []
+  )
+;
+
+const cloneParserState = state => ({
   tokens: state.tokens.slice(),
 });
 
@@ -30,7 +51,7 @@ const writeState = (sourceState: IParserState, destinationState: IParserState) =
   destinationState.tokens = sourceState.tokens.slice();
 };
 
-export const tryParse = <T>(state: IParserState, parser: IParser<T>): T | IParserError => {
+export const tryParse = parser => state => {
   const clonedState = cloneParserState(state);
 
   try {
@@ -49,7 +70,7 @@ export const tryParse = <T>(state: IParserState, parser: IParser<T>): T | IParse
   }
 };
 
-export const parseOr = <T>(state: IParserState, parsers: IParser<T>[]): T => {
+export const parseOr = <T>(parsers: IParser<T>[]): IParser<T> => state => {
   if (parsers.length === 1) {
     return parsers[0](state);
   }
@@ -58,7 +79,7 @@ export const parseOr = <T>(state: IParserState, parsers: IParser<T>[]): T => {
 
   for (let i=0; i<parsers.length; i++) {
     const parser = parsers[i];
-    const result = tryParse(state, parser);
+    const result = tryParse(parser)(state);
 
     if (result instanceof Error) {
       if (!isParserError(result)) {
@@ -101,13 +122,12 @@ export const parseOr = <T>(state: IParserState, parsers: IParser<T>[]): T => {
   throw error(deepestState, errorString);
 };
 
-const shiftToken = (state: IParserState): IToken => state.tokens.shift();
+const shiftToken = state => state.tokens.shift();
 
 export const parseToken = (
-  state: IParserState,
   tokenName: string,
   tokenValue?: any,
-): IToken => {
+): IParser<IToken> => state => {
   const clonedState = cloneParserState(state);
 
   const token = shiftToken(clonedState);
@@ -133,7 +153,7 @@ export const parseToken = (
   return token;
 };
 
-export const parseEOF = (state: IParserState): void => {
+export const parseEOF = state => {
   if (state.tokens.length > 0) {
     throw error(state, 'EOF');
   }
@@ -198,58 +218,58 @@ const binaryListToExpression = <T>(
 };
 
 export const parseBinary = <T>(
-  state: IParserState,
   binaryOperators: IBinaryOperator<T>[],
   parseExp: IParser<T>
-): T => {
-  const list = parseList(
-    state,
-    parseExp,
-    state => parseOr(state, binaryOperators.map(bop =>
-      (state: IParserState) => {
-        const bopResult = bop.parseBop(state);
+) =>
+  parseMap(
+    parseList(
+      parseExp,
+      parseOr(binaryOperators.map(bop =>
+        (state: IParserState) => {
+          const bopResult = bop.parseBop(state);
 
-        return {bop: bop, bopResult: bopResult};
-      }
-    )),
-    parseNothing,
-    parseNothing,
-    false,
-    true
-  );
-
-  return binaryListToExpression(list);
-};
+          return {bop: bop, bopResult: bopResult};
+        }
+      )),
+      parseNothing,
+      parseNothing,
+      false,
+      true
+    ),
+    binaryListToExpression,
+  )
+;
 
 export const parseGroup = <T>(
-  state: IParserState,
   parseFn: IParser<T>,
   startParseFn: IParser<void>,
   endParseFn: IParser<void>,
-): T => {
-  startParseFn(state);
-  const result = parseFn(state);
-  endParseFn(state);
-
-  return result;
-};
+): IParser<T> =>
+  parseMap(
+    parseSequence<T>([
+      startParseFn as any,
+      parseFn,
+      endParseFn as any,
+    ]),
+    ([start, middle, end]) => middle,
+  )
+;
 
 export const parseNothing = <T>(state: IParserState): void => {};
 
 export const parseList = <T, U>(
-  state: IParserState,
   parseFn: IParser<T>,
   delimiterParseFn: IParser<U>,
   startParseFn: IParser<void>,
   endParseFn: IParser<void>,
   mayBeEmpty: boolean = true,
   includeDelimitersInList: boolean = false,
-): (T | U)[] => {
-  return parseGroup(state, state => {
+): IParser<(T | U)[]> =>
+  parseGroup(state => {
     const list: (T | U)[] = [];
 
     if (mayBeEmpty) {
-      const result = tryParse(state, parseFn);
+      const result = tryParse(parseFn)(state);
 
       if (!(result instanceof Error)) {
         list.push(result as T);
@@ -266,7 +286,7 @@ export const parseList = <T, U>(
     }
 
     do {
-      const delim = tryParse(state, delimiterParseFn);
+      const delim = tryParse(delimiterParseFn)(state);
 
       if (delim instanceof Error) {
         break;
@@ -280,28 +300,26 @@ export const parseList = <T, U>(
     } while (true);
 
     return list;
-  }, startParseFn, endParseFn);
-};
+  }, startParseFn, endParseFn)
+;
 
-export const parseWhile = <T>(state: IParserState, parser: IParser<T>) => {
-  let result: T | IParserError;
-
+export const parseWhile = <T>(parser: IParser<T>) => state => {
   const list: T[] = [];
 
   do {
-    result = tryParse(state, parser);
+    const result = tryParse(parser)(state);
 
     if (result instanceof Error) {
+      if (!isParserError(result)) {
+        throw result;
+      }
+
       break;
     }
 
     list.push(result);
 
   } while(true);
-
-  if (!isParserError(result)) {
-    throw result;
-  }
 
   return list;
 };

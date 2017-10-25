@@ -1,5 +1,5 @@
+import { IEvaluationState } from '../lang/evaluation-state';
 import { parse } from '../lang/parser';
-
 import { tokenize } from '../lang/tokenizer';
 
 import { parser } from '../lang-filter/parser';
@@ -17,7 +17,9 @@ export interface IClientMessage {
   type: ClientMessageType;
 }
 
-export interface IClientSubscribeMessage<T> extends IClientMessage {
+export interface IClientSubscribeMessage<
+  T extends IEvaluationState
+> extends IClientMessage {
   type: ClientMessageType.Subscribe;
   table: string;
   filter?: Expression<T, boolean>;
@@ -79,7 +81,7 @@ const validateRawClientMessage = (clientMessage: IRawClientMessage) => {
   validator(clientMessage);
 };
 
-const convertRawClientMessage = <T>(
+const convertRawClientMessage = <T extends IEvaluationState>(
   rawClientMessage: IRawClientMessage
 ): IClientMessage => {
   switch(rawClientMessage.type) {

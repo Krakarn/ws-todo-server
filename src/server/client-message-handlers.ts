@@ -16,6 +16,17 @@ import {
 
 const clientMessageHandlers: {[type:string]: (clientMessage: IClientMessage) => IServerMessage} = {
   [ClientMessageType.Subscribe]: (clientMessage: IClientSubscribeMessage<any>) => {
+    const state: any = {};
+
+    const cloneState = state => {
+      const newState = {...state};
+      newState.clone = cloneState.bind(this, newState);
+
+      return newState;
+    };
+
+    state.clone = cloneState.bind(this, state);
+
     return {
       type: ServerMessageType.Subscribe,
       subscription: {
@@ -23,7 +34,10 @@ const clientMessageHandlers: {[type:string]: (clientMessage: IClientMessage) => 
         table: clientMessage.table,
         filter: clientMessage.filter ?
           clientMessage.filter.toString() :
-          void 0
+          void 0,
+        filterEvaluated: clientMessage.filter ?
+          clientMessage.filter.evaluate(state) :
+          void 0,
       }
     } as IServerSubscribeResponse;
   },

@@ -1,10 +1,10 @@
-import { parse } from './lang/parser';
+import { parse } from '../lang/parser';
 
-import { tokenize } from './lang/tokenizer';
+import { tokenize } from '../lang/tokenizer';
 
-import { parser } from './lang-filter/parser';
-import { Expression } from './lang-filter/syntax';
-import { tokenRules } from './lang-filter/token-rules';
+import { parser } from '../lang-filter/parser';
+import { Expression } from '../lang-filter/syntax';
+import { tokenRules } from '../lang-filter/token-rules';
 
 import { IStateItem } from './state';
 
@@ -25,7 +25,7 @@ export interface IClientSubscribeMessage<T> extends IClientMessage {
 
 export interface IClientUnsubscribeMessage extends IClientMessage {
   type: ClientMessageType.Unsubscribe;
-  subscriptionId: number;
+  subscriptionId: string;
 }
 
 interface IRawClientMessage {
@@ -59,10 +59,10 @@ const validators: {
       typeof msg.subscriptionId
     ;
 
-    if (subscriptionIdTypeof !== 'number') {
+    if (subscriptionIdTypeof !== 'string') {
       throw new Error(`Invalid table property type "${
         subscriptionIdTypeof
-      }", should be "number".`);
+      }", should be "string".`);
     }
   },
 };

@@ -1,5 +1,5 @@
 import { start } from './server';
-import { State } from './state';
+import { State } from './server/state';
 
 const state = new State<any>();
 

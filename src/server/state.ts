@@ -1,11 +1,11 @@
-import { User } from './state/user';
+import * as uuid from 'uuid/v4';
 
 export interface IStateItem extends IStateItemInternal {
-  readonly id: number;
+  readonly id: string;
 }
 
 export interface IStateItemInternal {
-  id?: number;
+  id?: string;
 }
 
 export class StateCollection<T extends IStateItemInternal> {
@@ -25,19 +25,13 @@ export class StateCollection<T extends IStateItemInternal> {
     if (!item.id) {
       const nextId = this.getNextId();
       item.id = nextId;
-
-      this.setCurrentId(nextId);
     }
 
     return this.list.push(item);
   }
 
-  private getNextId(): number {
-    return this._currentId + 1;
-  }
-
-  private setCurrentId(currentId: number): void {
-    this._currentId = currentId;
+  private getNextId(): string {
+    return uuid();
   }
 }
 

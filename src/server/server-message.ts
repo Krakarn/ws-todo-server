@@ -1,5 +1,6 @@
+import { ISubscription } from './subscription';
+
 export enum ServerMessageType {
-  Success = 'success',
   Error = 'error',
   Subscribe = 'subscribe',
   Unsubscribe = 'unsubscribe',
@@ -7,10 +8,6 @@ export enum ServerMessageType {
 
 export interface IServerMessage {
   type: ServerMessageType;
-}
-
-export interface IServerSuccessMessage extends IServerMessage {
-  type: ServerMessageType.Success;
 }
 
 export interface IServerErrorMessage extends IServerMessage {
@@ -26,10 +23,4 @@ export interface IServerSubscribeResponse extends IServerMessage {
 export interface IServerUnsubscribeResponse extends IServerMessage {
   type: ServerMessageType.Unsubscribe;
   subscription: ISubscription;
-}
-
-export interface ISubscription {
-  id: number;
-  table: string;
-  filter?: string;
 }

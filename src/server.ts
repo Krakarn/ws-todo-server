@@ -2,43 +2,22 @@ import * as http from 'http';
 import * as Rx from 'rxjs';
 import * as WebSocket from 'ws';
 
-import { ITables, State } from './state';
+import { ITables, State } from './server/state';
 
-import {
-  IServerErrorMessage,
-  IServerMessage,
-  IServerSubscribeResponse,
-  IServerUnsubscribeResponse,
-  ServerMessageType,
-} from './server-message';
+import { ISocketEvent, SocketEvent } from './server/socket-event';
+import { getSocketEventHandler } from './server/socket-event-handlers';
 
-import {
-  ClientMessageType,
-  IClientMessage,
-  IClientSubscribeMessage,
-  IClientUnsubscribeMessage,
-  stringToClientMessage,
-} from './client-message';
+export interface IServerOptions {
+  port?: number;
+}
 
-const options = {
+const defaultOptions: IServerOptions = {
   port: 8090,
 };
 
 export interface ISocketConnected {
   socket: WebSocket;
   request: http.IncomingMessage;
-}
-
-export interface ISocketEvent<T> {
-  name: string;
-  payload?: T;
-}
-
-export enum SocketEvent {
-  Message = 'message',
-  Open = 'open',
-  Close = 'close',
-  Error = 'error',
 }
 
 const ws$subject = new Rx.Subject<ISocketConnected>();
@@ -60,78 +39,12 @@ const ws$ = ws$subject.asObservable()
   })
 ;
 
-const sendError = (socket: WebSocket, error: string) => socket.send(JSON.stringify({error}));
-const handleError = (socket: WebSocket, error: string) => {
-  sendError(socket, error);
-  console.error('Client error:', error);
-};
+export const start = <T extends ITables>(
+  state: State<T>,
+  options?: IServerOptions,
+) => {
+  options = {...defaultOptions, ...options};
 
-const clientMessageHandlers: {[type:string]: (clientMessage: IClientMessage) => IServerMessage} = {
-  [ClientMessageType.Subscribe]: (clientMessage: IClientSubscribeMessage<any>) => {
-    return {
-      type: ServerMessageType.Subscribe,
-      subscription: {
-        id: 0,
-        table: clientMessage.table,
-        filter: clientMessage.filter ?
-          clientMessage.filter.toString() :
-          void 0
-      }
-    } as IServerSubscribeResponse;
-  },
-
-  [ClientMessageType.Unsubscribe]: (clientMessage: IClientUnsubscribeMessage) => {
-    return {
-      type: ServerMessageType.Unsubscribe,
-      subscription: {
-        id: clientMessage.subscriptionId,
-      }
-    } as IServerUnsubscribeResponse;
-  },
-};
-
-const socketEventHandlers: {[event:string]: (socket: WebSocket, payload?: WebSocket.Data) => void} = {
-  [SocketEvent.Open]: () => console.log('Client connected.'),
-
-  [SocketEvent.Message]: (socket, message) => {
-    try {
-      const clientMessage = stringToClientMessage(message.toString());
-
-      console.log('Client message received:', clientMessage);
-
-      const clientMessageHandler = clientMessageHandlers[clientMessage.type];
-
-      if (!clientMessageHandler) {
-        throw new Error(`Unhandled client message type ${clientMessage.type}`);
-      }
-
-      const response = clientMessageHandler(clientMessage);
-
-      socket.send(JSON.stringify(response));
-
-    } catch (e) {
-      const errorBegin = 'Error parsing client message: ';
-      const error = `${errorBegin} ${e.message}`;
-
-      console.error(errorBegin, e);
-
-      const response: IServerErrorMessage = {
-        type: ServerMessageType.Error,
-        error
-      };
-
-      socket.send(JSON.stringify(response));
-    }
-  },
-
-  [SocketEvent.Close]: () => console.log('Client disconnected.'),
-
-  [SocketEvent.Error]: handleError,
-};
-
-const getSocketEventHandler = (name: string) => socketEventHandlers[name];
-
-export const start = <T extends ITables>(state: State<T>) => {
   ws$.subscribe(({socket, socket$}) => {
     const socket$subscription = socket$.subscribe(
       ({name, payload}) => {

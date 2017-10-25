@@ -4,10 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "prestart": "webpack",
+    "build": "webpack",
+    "prestart": "npm run build",
     "start": "node ./dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "predebug": "webpack",
+    "predebug": "npm run build",
     "debug": "node --inspect-brk ./dist/index.js"
   },
   "author": "",
@@ -24,6 +25,7 @@
     "source-map-loader": "^0.2.2",
     "typescript": "^2.5.3",
     "utf-8-validate": "^3.0.3",
+    "uuid": "^3.1.0",
     "ws": "^3.2.0"
   }
 }

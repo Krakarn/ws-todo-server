@@ -56,8 +56,8 @@ export class IdentifierExpression<T extends IEvaluationState, U> extends Express
     this.identifier = identifier;
   }
 
-  public evaluate(state) {
-    return state[this.identifier];
+  public evaluate(state: T) {
+    return state.state[this.identifier];
   }
 
   public toString() {

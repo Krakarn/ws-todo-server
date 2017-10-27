@@ -1,9 +1,15 @@
-import { ISubscription } from './subscription';
+import {
+  ISerializedSubscription,
+  ISubscription,
+} from './subscription';
+
+import { IStateCollectionEvent } from './state';
 
 export enum ServerMessageType {
   Error = 'error',
   Subscribe = 'subscribe',
   Unsubscribe = 'unsubscribe',
+  SubscriptionEvent = 'subscription-event',
 }
 
 export interface IServerMessage {
@@ -17,10 +23,16 @@ export interface IServerErrorMessage extends IServerMessage {
 
 export interface IServerSubscribeResponse extends IServerMessage {
   type: ServerMessageType.Subscribe;
-  subscription: ISubscription;
+  subscription: ISerializedSubscription;
 }
 
 export interface IServerUnsubscribeResponse extends IServerMessage {
   type: ServerMessageType.Unsubscribe;
-  subscription: ISubscription;
+  subscription: ISerializedSubscription;
+}
+
+export interface IServerSubscriptionEventResponse<T> extends IServerMessage {
+  type: ServerMessageType.SubscriptionEvent;
+  subscriptionId: string;
+  event: T;
 }

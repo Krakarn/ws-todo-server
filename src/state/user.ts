@@ -1,13 +1,21 @@
 import { IStateItem } from '../server/state';
-import { TodoList } from './todo-list';
+
+import { TodoItem } from './todo-item';
 
 export class User implements IStateItem {
   public readonly id: string;
-  public todoList: TodoList;
+
+  public name: string;
+
+  public todos: TodoItem[];
 
   constructor(
-    todoList = new TodoList(),
+    id: string,
+    name: string,
+    todos: TodoItem[] = [],
   ) {
-    this.todoList = todoList;
+    this.id = id;
+    this.name = name;
+    this.todos = todos;
   }
 }

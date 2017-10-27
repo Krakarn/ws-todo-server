@@ -1,11 +1,16 @@
 import * as http from 'http';
 import * as Rx from 'rxjs';
+import * as uuid from 'uuid/v4';
 import * as WebSocket from 'ws';
+
+import { IClient } from './server/client';
 
 import { ITables, State } from './server/state';
 
 import { ISocketEvent, SocketEvent } from './server/socket-event';
 import { getSocketEventHandler } from './server/socket-event-handlers';
+
+import { IEvaluationState } from './lang/evaluation-state';
 
 export interface IServerOptions {
   port?: number;
@@ -39,31 +44,36 @@ const ws$ = ws$subject.asObservable()
   })
 ;
 
-export const start = <T extends ITables>(
-  state: State<T>,
+export const start = <T extends ITables, U extends IEvaluationState>(
+  state: State<T, U>,
   options?: IServerOptions,
 ) => {
   options = {...defaultOptions, ...options};
 
   ws$.subscribe(({socket, socket$}) => {
+    const client: IClient = {
+      id: uuid(),
+      socket,
+    };
+
     const socket$subscription = socket$.subscribe(
       ({name, payload}) => {
         const handler = getSocketEventHandler(name);
 
         if (handler) {
-          handler(socket, payload);
+          handler(state, client, payload);
         } else {
           const errorHandler = getSocketEventHandler(SocketEvent.Error);
-          errorHandler(socket, `Handler not found for event '${name}'.`);
+          errorHandler(state, client, `Handler not found for event '${name}'.`);
         }
       },
       error => {
         const errorHandler = getSocketEventHandler(SocketEvent.Error);
-        errorHandler(socket, `Handler not found for event '${name}'.`);
+        errorHandler(state, client, `Handler not found for event '${name}'.`);
       },
       () => {
         const closeHandler = getSocketEventHandler(SocketEvent.Close);
-        closeHandler(socket);
+        closeHandler(state, client);
       },
     );
   });

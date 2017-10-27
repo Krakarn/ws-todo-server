@@ -1,11 +1,20 @@
 import * as uuid from 'uuid/v4';
 
+import { IClient } from './client';
+import { ITables, State } from './state';
+
+import { IEvaluationState } from '../lang/evaluation-state';
+import { serializeSubscription } from './subscription';
+
 import {
-  ClientMessageType,
+  IClientCreateMessage,
+  IClientDeleteMessage,
   IClientMessage,
   IClientSubscribeMessage,
   IClientUnsubscribeMessage,
+  IClientUpdateMessage,
 } from './client-message';
+import { ClientMessageType } from './client-message-type';
 
 import {
   IServerMessage,
@@ -14,41 +23,76 @@ import {
   ServerMessageType,
 } from './server-message';
 
-const clientMessageHandlers: {[type:string]: (clientMessage: IClientMessage) => IServerMessage} = {
-  [ClientMessageType.Subscribe]: (clientMessage: IClientSubscribeMessage<any>) => {
-    const state: any = {};
+const clientMessageHandlers: {[type:string]:
+  <T extends ITables, U extends IEvaluationState>(
+    state: State<T, U>,
+    client: IClient,
+    clientMessage: IClientMessage,
+  ) => IServerMessage | void;
+} = {
+  [ClientMessageType.Subscribe]: (
+    state,
+    client: IClient,
+    clientMessage: IClientSubscribeMessage<any>
+  ) => {
+    const subscription = state.subscribe(
+      client.id,
+      clientMessage.table,
+      clientMessage.filter,
+    );
 
-    const cloneState = state => {
-      const newState = {...state};
-      newState.clone = cloneState.bind(this, newState);
+    const serializedSubscription = serializeSubscription(subscription);
 
-      return newState;
-    };
-
-    state.clone = cloneState.bind(this, state);
+    console.log(`Client ${client.id} subscribed`, serializedSubscription);
 
     return {
       type: ServerMessageType.Subscribe,
-      subscription: {
-        id: uuid(),
-        table: clientMessage.table,
-        filter: clientMessage.filter ?
-          clientMessage.filter.toString() :
-          void 0,
-        filterEvaluated: clientMessage.filter ?
-          clientMessage.filter.evaluate(state) :
-          void 0,
-      }
+      subscription: serializedSubscription,
     } as IServerSubscribeResponse;
   },
 
-  [ClientMessageType.Unsubscribe]: (clientMessage: IClientUnsubscribeMessage) => {
+  [ClientMessageType.Unsubscribe]: (
+    state,
+    client,
+    clientMessage: IClientUnsubscribeMessage
+  ) => {
+    const subscription = state.unsubscribe(
+      client.id,
+      clientMessage.subscriptionId,
+    );
+
+    const serializedSubscription = serializeSubscription(subscription);
+
+    console.log(`Client ${client.id} unsubscribed`, serializedSubscription);
+
     return {
       type: ServerMessageType.Unsubscribe,
-      subscription: {
-        id: clientMessage.subscriptionId,
-      }
+      subscription: serializedSubscription,
     } as IServerUnsubscribeResponse;
+  },
+
+  [ClientMessageType.Create]: (
+    state,
+    client,
+    clientMessage: IClientCreateMessage<any>,
+  ) => {
+    state.tables[clientMessage.table].create(clientMessage.item);
+  },
+
+  [ClientMessageType.Delete]: (
+    state,
+    client,
+    clientMessage: IClientDeleteMessage,
+  ) => {
+    state.tables[clientMessage.table].delete(clientMessage.id);
+  },
+
+  [ClientMessageType.Update]: (
+    state,
+    client,
+    clientMessage: IClientUpdateMessage<any>,
+  ) => {
+    state.tables[clientMessage.table].update(clientMessage.item);
   },
 };
 

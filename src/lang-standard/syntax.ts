@@ -3,6 +3,10 @@ export { Expression } from '../lang/syntax';
 
 import { IEvaluationState } from '../lang/evaluation-state';
 
+const accessIdentifier = <T extends IEvaluationState, U>(identifier: string, state: T): U =>
+  state.state[identifier]
+;
+
 export abstract class LiteralExpression<T extends IEvaluationState, U> extends Expression<T, U> {}
 
 export class PrimitiveExpression<T extends IEvaluationState, U> extends LiteralExpression<T, U> {
@@ -57,11 +61,17 @@ export class IdentifierExpression<T extends IEvaluationState, U> extends Express
   }
 
   public evaluate(state: T) {
-    return state.state[this.identifier];
+    return accessIdentifier<T, U>(this.identifier, state);
   }
 
   public toString() {
     return this.identifier;
+  }
+}
+
+export class InfixIdentifierExpression<T extends IEvaluationState, U> extends IdentifierExpression<T, U> {
+  public evaluate(state: T) {
+    return accessIdentifier<T, U>(`(${this.identifier})`, state);
   }
 }
 
@@ -183,5 +193,11 @@ export class ApplyExpression<
 
   public toString() {
     return `${this.functionExpression.toString()} ${this.argumentExpression.toString()}`;
+  }
+}
+
+export class ApplyInfixExpression<T extends IEvaluationState, U, V> extends ApplyExpression<T, U, V> {
+  public toString() {
+    return `${this.argumentExpression.toString()} ${this.functionExpression.toString()}`;
   }
 }

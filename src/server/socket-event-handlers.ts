@@ -1,6 +1,6 @@
 import * as WebSocket from 'ws';
 
-import { stringToExpression } from '../lang-filter/parser';
+import { stringToExpression } from '../lang-filter/string-to-expression';
 import { IEvaluationState } from '../lang/evaluation-state';
 import { IClient } from './client';
 import { stringToClientMessage } from './client-message';

@@ -99,16 +99,23 @@ export const parseOr = <T>(parsers: IParser<T>[]): IParser<T> => state => {
     , errors[0].state.tokens.length
   );
 
-  const deepestErrors = errors
+  const _deepestErrors = errors
     .filter(error => error.state.tokens.length === smallestNumberOfTokens)
   ;
+
+  const deepestErrors = [];
+  _deepestErrors.forEach(error => {
+    if (deepestErrors.every(e => e.expected !== error.expected)) {
+      deepestErrors.push(error);
+    }
+  });
 
   const deepestState = deepestErrors[0].state;
 
   let errorString: string;
 
   if (deepestErrors.length > 1) {
-    const lastError = deepestErrors[errors.length - 1];
+    const lastError = deepestErrors[deepestErrors.length - 1];
 
     errorString = `${deepestErrors
       .filter((_, i) => i < deepestErrors.length - 1)
@@ -152,6 +159,13 @@ export const parseToken = (
 
   return token;
 };
+
+export const parseTokenValue = (
+  tokenName: string,
+  tokenValue?: string,
+) =>
+  parseMap(parseToken(tokenName, tokenValue), token => token.value)
+;
 
 export const parseEOF = state => {
   if (state.tokens.length > 0) {
@@ -303,14 +317,20 @@ export const parseList = <T, U>(
   }, startParseFn, endParseFn)
 ;
 
-export const parseWhile = <T>(parser: IParser<T>) => state => {
+export const parseWhile = <T>(parser: IParser<T>, mayBeEmpty: boolean = false) => state => {
   const list: T[] = [];
 
   do {
     const result = tryParse(parser)(state);
 
     if (result instanceof Error) {
-      if (!isParserError(result)) {
+      if (
+        !isParserError(result) ||
+        (
+          !mayBeEmpty &&
+          list.length === 0
+        )
+      ) {
         throw result;
       }
 
@@ -333,7 +353,7 @@ const isParserError = (error: Error) => {
   );
 };
 
-export const parse = <T>(tokens: IToken[], parser: IParser<T>) => {
+export const parse = <T>(tokens: IToken[], parser: IParser<T>): T => {
   const state = {
     tokens,
   };
@@ -354,9 +374,9 @@ export const parse = <T>(tokens: IToken[], parser: IParser<T>) => {
         ''
       ;
 
-      console.error(`${errorLocation}Unexpected ${tokenString} expected ${err.expected}`);
+      throw new Error(`${errorLocation}Unexpected ${tokenString} expected ${err.expected}`);
     } else {
-      console.error(e);
+      throw e;
     }
   }
 };

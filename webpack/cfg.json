@@ -1,6 +1,17 @@
 {
   "paths": {
     "entry": "./src/index.ts",
+    "test": {
+      "srcDir": "./src-spec",
+      "src": "./src-spec/**/*.ts",
+      "dist": "./spec",
+      "copy": [
+        {
+          "from": "./src-spec/support/jasmine.json",
+          "to": "./support"
+        }
+      ]
+    },
     "dist": "./dist",
     "outFile": "index.js",
     "outSourceMapFile": "index.js.map"

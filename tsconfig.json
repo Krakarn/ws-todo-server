@@ -6,8 +6,5 @@
     "noImplicityAny": true,
     "sourceMap": true,
     "experimentalDecorators": true
-  },
-  "include": [
-    "./src/**/*.ts"
-  ]
+  }
 }

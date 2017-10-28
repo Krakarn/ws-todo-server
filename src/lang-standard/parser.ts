@@ -16,16 +16,19 @@ import {
   parseOr,
   parseSequence,
   parseToken,
+  parseTokenValue,
   parseWhile,
 } from '../lang/parser';
 import { IToken } from '../lang/tokenizer';
 
 import {
   ApplyExpression,
+  ApplyInfixExpression,
   Expression,
   FunctionExpression,
   GroupExpression,
   IdentifierExpression,
+  InfixIdentifierExpression,
   LetExpression,
   ListExpression,
   PrimitiveExpression,
@@ -39,7 +42,8 @@ const ignoreWhitespace =
       parseToken(Token.WhiteSpaceSpace),
       parseToken(Token.WhiteSpaceEndline),
       parseToken(Token.WhiteSpaceOther),
-    ])
+    ]),
+    true
   )
 ;
 
@@ -54,24 +58,25 @@ const ignoreSurroundingWhitespace = <T>(parser: IParser<T>): IParser<T> =>
   )
 ;
 
-export const parseExpression = (
+const parseExpression = (
   parsersNotAllowed: IParser<any>[] = [],
 ) => state =>
   ignoreSurroundingWhitespace(
     parseOr([
       parseGroupWrapper,
+      parseApply,
+      parseInfixApply,
       parseLiteral,
       parseLet,
       parseFunction,
-      parseApply,
-      parseIdentifier,
+      parsePrefixIdentifier,
     ].filter(parser => parsersNotAllowed.every(
       parserNotAllowed => parserNotAllowed !== parser
     )))
   )(state)
 ;
 
-export const parseGroupWrapper =
+const parseGroupWrapper =
   parseMap(
     parseGroup<Expression<any, any>>(
       parseExpression(),
@@ -89,10 +94,10 @@ const parsePrimitive = tokenType =>
   )
 ;
 
-export const parseNumberLiteral = parsePrimitive(Token.Number);
-export const parseStringLiteral = parsePrimitive(Token.String);
+const parseNumberLiteral = parsePrimitive(Token.Number);
+const parseStringLiteral = parsePrimitive(Token.String);
 
-export const parseKeywordLiteral =
+const parseKeywordLiteral =
   parseMap(
     parseOr([
       parseMap(parseToken(Token.Identifier, 'true'), constant(true)),
@@ -103,7 +108,7 @@ export const parseKeywordLiteral =
   )
 ;
 
-export const parseListLiteral =
+const parseListLiteral =
   parseMap(
     parseList<Expression<any, any>, any>(
       parseExpression(),
@@ -115,7 +120,7 @@ export const parseListLiteral =
   )
 ;
 
-export const parseLiteral =
+const parseLiteral =
   parseOr<any>([
     parseNumberLiteral,
     parseStringLiteral,
@@ -124,28 +129,44 @@ export const parseLiteral =
   ])
 ;
 
-export const parseIdentifier =
+const parseSymbol =
+  parseMap(
+    parseWhile(parseTokenValue(Token.Symbol)),
+    values => values.join('')
+  )
+;
+
+const parsePrefixSymbol =
+  parseMap(
+    parseSymbol,
+    (identifier, state) => {
+      if(/\([\+\-\*\/\.\,\=\<\>\$\^\!\?]+\)/.test(identifier)) {
+        return identifier;
+      }
+
+      throw error(state, 'identifier');
+    }
+  )
+;
+
+const parseInfixIdentifier =
+  parseMap(
+    parseSymbol,
+    value => new InfixIdentifierExpression(value)
+  )
+;
+
+const parsePrefixIdentifier =
   parseMap(
     parseOr([
-      parseMap(parseToken(Token.Identifier), token => token.value),
-      parseMap(
-        parseWhile(parseToken(Token.Symbol)),
-        (tokens, state) => {
-          const value = tokens.map(t => t.value).join('');
-
-          if (/\([\+\-\*\/]\)/.test(value)) {
-            return value;
-          }
-
-          throw error(state, 'identifier');
-        }
-      ),
+      parseTokenValue(Token.Identifier),
+      parsePrefixSymbol,
     ]),
     value => new IdentifierExpression(value),
   )
 ;
 
-export const parseLet =
+const parseLet =
   parseMap(
     parseSequence<any>(
       [
@@ -170,7 +191,7 @@ export const parseLet =
   )
 ;
 
-export const parseFunction =
+const parseFunction =
   parseMap(
     parseSequence<any>(
       [
@@ -193,23 +214,43 @@ export const parseFunction =
   )
 ;
 
-export const parseApply = state =>
+const parseInfixApply = state =>
+  parseMap(
+    parseSequence([
+      parseExpression([parseInfixApply]),
+      ignoreWhitespace,
+      parseInfixIdentifier,
+      ignoreWhitespace,
+      parseExpression(),
+    ]),
+    ([lhe, lws, infixFunction, rws, rhe]) =>
+      new ApplyExpression(
+        new ApplyInfixExpression(
+          infixFunction,
+          lhe,
+        ),
+        rhe,
+      )
+  )(state)
+;
+
+const parseApply = state =>
   parseMap(
     parseWhile(
-      parseExpression([parseApply]),
+      parseExpression([parseApply, parseInfixApply]),
     ),
-    list => list.slice(1).reduce((acc, expression) =>
+    expressions => expressions.slice(1).reduce((acc, expression) =>
       new ApplyExpression(
         acc,
         expression,
       ),
-      list[0]
+      expressions[0]
     )
   )(state)
 ;
 
-export const parser =
-  parseMap(
+export const parser: IParser<Expression<any,any>> =
+  parseMap<any, any>(
     parseSequence([
       parseExpression(),
       parseEOF

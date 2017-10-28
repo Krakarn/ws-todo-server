@@ -7,7 +7,7 @@ export class EvaluationState implements IEvaluationState {
     this.state = {...state};
   }
 
-  public clone() {
-    return new EvaluationState(this.state);
+  public clone<T extends EvaluationState>(): T {
+    return new EvaluationState(this.state) as T;
   }
 }

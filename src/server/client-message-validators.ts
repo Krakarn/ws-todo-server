@@ -1,14 +1,24 @@
 import { IRawClientMessage } from './client-message-raw';
 import { ClientMessageType } from './client-message-type';
 
-const validateTable = (table: any) => {
-  const tableTypeof = typeof table;
+const validateTypeof = (name: string, types: string[], value: any) => {
+  const valueTypeof = typeof value;
 
-  if (tableTypeof !== 'string') {
-    throw new Error(`Invalid table property type "${
-      tableTypeof
-    }", should be "string".`);
+  if (types.every(type => type !== valueTypeof)) {
+    throw new Error(`Invalid ${name} property type "${
+      valueTypeof
+    }", should be ${
+      types.length === 1 ?
+        `"${types[0]}"` :
+        types.length > 1 ?
+        `either ${types.slice(0, -1).map(t => `"${t}"`).join(', ')} or "${types.slice(-1)[0]}"` :
+        ''
+    }.`);
   }
+};
+
+const validateTable = (table: any) => {
+  validateTypeof('table', ['string'], table);
 
   if (table === '') {
     throw new Error(`Invalid table property value "${
@@ -18,50 +28,28 @@ const validateTable = (table: any) => {
 };
 
 const validateFilter = (filter: any) => {
-  const filterTypeof = typeof filter;
-
-  if (filterTypeof !== 'undefined' && filterTypeof !== 'string') {
-    throw new Error(`Invalid filter property type "${
-      filterTypeof
-    }", should be either "undefined" or "string".`);
-  }
+  validateTypeof('filter', ['undefined', 'string'], filter);
 };
 
 const validateSubscriptionId = (subscriptionId: any) => {
-  const subscriptionIdTypeof =
-    typeof subscriptionId
-  ;
-
-  if (subscriptionIdTypeof !== 'string') {
-    throw new Error(`Invalid subscriptionId property type "${
-      subscriptionIdTypeof
-    }", should be "string".`);
-  }
+  validateTypeof('subscriptionId', ['string'], subscriptionId);
 };
 
 const validateItem = (item: any) => {
-  const itemTypeof = typeof item;
-
-  if (itemTypeof !== 'object') {
-    throw new Error(
-      `Invalid item property type "${itemTypeof}", should be "object".`
-    );
-  }
+  validateTypeof('item', ['object'], item);
 };
 
 const validateId = (id: any) => {
-  const idTypeof = typeof id;
-
-  if (idTypeof !== 'string') {
-    throw new Error(
-      `Invalid id property type "${idTypeof}", should be "string".`
-    );
-  }
+  validateTypeof('id', ['string'], id);
 };
 
 export const validators: {
   [clientMessageType: string]: (msg: IRawClientMessage) => void;
 } = {
+  [ClientMessageType.Debug]: msg => {
+    validateTypeof('expression', ['string'], msg.expression);
+  },
+
   [ClientMessageType.Subscribe]: msg => {
     validateTable(msg.table);
     validateFilter(msg.filter);

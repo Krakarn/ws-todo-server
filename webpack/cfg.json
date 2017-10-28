@@ -3,6 +3,6 @@
     "entry": "./src/index.ts",
     "dist": "./dist",
     "outFile": "index.js",
-    "outSourceMapFile": "index.map.js"
+    "outSourceMapFile": "index.js.map"
   }
 }

@@ -8,6 +8,7 @@ import { serializeSubscription } from './subscription';
 
 import {
   IClientCreateMessage,
+  IClientDebugMessage,
   IClientDeleteMessage,
   IClientMessage,
   IClientSubscribeMessage,
@@ -17,6 +18,7 @@ import {
 import { ClientMessageType } from './client-message-type';
 
 import {
+  IServerDebugMessage,
   IServerMessage,
   IServerSubscribeResponse,
   IServerUnsubscribeResponse,
@@ -30,6 +32,21 @@ const clientMessageHandlers: {[type:string]:
     clientMessage: IClientMessage,
   ) => IServerMessage | void;
 } = {
+  [ClientMessageType.Debug]: <T extends ITables, U extends IEvaluationState>(
+    state,
+    client: IClient,
+    clientMessage: IClientDebugMessage<U, any>
+  ) => {
+    const value = clientMessage.expression.evaluate(state.evaluationState);
+
+    console.log(`Client ${client.id} debug ${clientMessage.expression.toString()}`, value);
+
+    return {
+      type: ServerMessageType.Debug,
+      message: value,
+    } as IServerDebugMessage;
+  },
+
   [ClientMessageType.Subscribe]: (
     state,
     client: IClient,

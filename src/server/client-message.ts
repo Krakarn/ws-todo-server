@@ -11,6 +11,11 @@ export interface IClientMessage {
   type: ClientMessageType;
 }
 
+export interface IClientDebugMessage<T extends IEvaluationState, U> extends IClientMessage {
+  type: ClientMessageType.Debug;
+  expression: Expression<T, U>;
+}
+
 export interface IClientTableMessage extends IClientMessage {
   table: string;
 }

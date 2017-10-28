@@ -1,4 +1,4 @@
 export interface IEvaluationState {
   state: {[index:string]: any};
-  clone(): IEvaluationState;
+  clone<T extends IEvaluationState>(): T;
 }

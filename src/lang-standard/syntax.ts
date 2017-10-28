@@ -3,26 +3,6 @@ export { Expression } from '../lang/syntax';
 
 import { IEvaluationState } from '../lang/evaluation-state';
 
-export class NativeExpression<T extends IEvaluationState, U> extends Expression<T, U> {
-  public _evaluate: (state: T) => U;
-  public _toString: () => string;
-
-  constructor(evaluate: (state: T) => U, toString: () => string) {
-    super();
-
-    this._evaluate = evaluate;
-    this._toString = toString;
-  }
-
-  public evaluate(state: T) {
-    return this._evaluate(state);
-  }
-
-  public toString() {
-    return this._toString();
-  }
-}
-
 export abstract class LiteralExpression<T extends IEvaluationState, U> extends Expression<T, U> {}
 
 export class PrimitiveExpression<T extends IEvaluationState, U> extends LiteralExpression<T, U> {
@@ -134,7 +114,7 @@ export class FunctionExpression<
     return (parameter: U) => {
       const clonedState = state.clone() as T;
 
-      clonedState[this.parameterIdentifier] = parameter;
+      clonedState.state[this.parameterIdentifier] = parameter;
 
       return this.bodyExpression.evaluate(clonedState);
     };

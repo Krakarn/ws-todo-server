@@ -5,6 +5,10 @@ import * as Rx from 'rxjs';
 import { oForEach } from '../pure';
 
 import { EvaluationState } from '../lang-standard/evaluation-state';
+import {
+  INativeLibrary,
+  loadLibrary as loadNativeLibrary,
+} from '../lang-standard/lib/native';
 import { IEvaluationState } from '../lang/evaluation-state';
 import { Expression } from '../lang/syntax';
 
@@ -144,11 +148,16 @@ export class State<T extends ITables, U extends IEvaluationState> {
 
   public clients: {[clientId: string]: IClientInfo<U>};
 
+  public readonly evaluationState: EvaluationState &
+    INativeLibrary<any>;
+
   constructor(
     tables: T = {} as T,
   ) {
     this.tables = tables;
     this.clients = {};
+
+    this.evaluationState = this.createEvaluationState();
   }
 
   public registerClient(client: IClient) {
@@ -200,8 +209,6 @@ export class State<T extends ITables, U extends IEvaluationState> {
       .events$
     ;
 
-    const eState = new EvaluationState() as U;
-
     if (filter) {
 
       rx = rx
@@ -211,9 +218,8 @@ export class State<T extends ITables, U extends IEvaluationState> {
             event.type === 'update' ||
             event.type === 'delete'
           ) {
-            const eState = new EvaluationState({
-              [evaluationStateItemIdentifier]: (event as IStateCollectionItemEvent<any>).item,
-            }) as U;
+            const eState = this.evaluationState.clone<U>();
+            eState[evaluationStateItemIdentifier] = event;
 
             return filter.evaluate(eState);
           }
@@ -230,9 +236,8 @@ export class State<T extends ITables, U extends IEvaluationState> {
 
     const list = this.tables[table].list.filter(item => {
       if (filter) {
-        const eState = new EvaluationState({
-          [evaluationStateItemIdentifier]: item,
-        }) as U;
+        const eState = this.evaluationState.clone<U>();
+        eState[evaluationStateItemIdentifier] = item;
 
         return filter.evaluate(eState);
       }
@@ -279,5 +284,11 @@ export class State<T extends ITables, U extends IEvaluationState> {
       type: ServerMessageType.Error,
       error: error,
     } as IServerErrorMessage));
+  }
+
+  private createEvaluationState() {
+    const eState = new EvaluationState();
+
+    return loadNativeLibrary(eState);
   }
 }

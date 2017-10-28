@@ -3,6 +3,7 @@ import { Expression } from '../lang/syntax';
 
 import {
   IClientCreateMessage,
+  IClientDebugMessage,
   IClientDeleteMessage,
   IClientMessage,
   IClientSubscribeMessage,
@@ -34,6 +35,12 @@ export const convertRawClientMessage = <T extends IEvaluationState>(
   stringToExpression: (s: string) => Expression<T, boolean>,
 ): IClientMessage => {
   switch(rawClientMessage.type) {
+    case ClientMessageType.Debug:
+      return {
+        type: ClientMessageType.Debug,
+        expression: stringToExpression(rawClientMessage.expression)
+      } as IClientDebugMessage<T, any>;
+
     case ClientMessageType.Subscribe:
       return {
         type: ClientMessageType.Subscribe,

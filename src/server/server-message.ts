@@ -6,6 +6,7 @@ import {
 import { IStateCollectionEvent } from './state';
 
 export enum ServerMessageType {
+  Debug = 'debug',
   Error = 'error',
   Subscribe = 'subscribe',
   Unsubscribe = 'unsubscribe',
@@ -14,6 +15,11 @@ export enum ServerMessageType {
 
 export interface IServerMessage {
   type: ServerMessageType;
+}
+
+export interface IServerDebugMessage extends IServerMessage {
+  type: ServerMessageType.Debug;
+  message: string;
 }
 
 export interface IServerErrorMessage extends IServerMessage {

@@ -14,7 +14,7 @@ export interface IParserError extends Error {
   expected?: string;
 }
 
-const error = (state: IParserState, expected: string): IParserError => {
+export const error = (state: IParserState, expected: string): IParserError => {
   const error: IParserError = new Error(`Expected ${expected}.`);
 
   error.state = cloneParserState(state);
@@ -29,9 +29,9 @@ export interface IParser<T> {
 
 export const parseMap = <T, U>(
   parser: IParser<T>,
-  mapFn: (result: T) => U
+  mapFn: (result: T, state?) => U
 ): IParser<U> => state =>
-  mapFn(parser(state))
+  mapFn(parser(state), state)
 ;
 
 export const parseSequence = <T>(

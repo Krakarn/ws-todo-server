@@ -5,6 +5,7 @@ import {
 
 import { IEvaluationState } from '../lang/evaluation-state';
 import {
+  error,
   IParser,
   IParserState,
   parseEOF,
@@ -125,8 +126,22 @@ export const parseLiteral =
 
 export const parseIdentifier =
   parseMap(
-    parseToken(Token.Identifier),
-    token => new IdentifierExpression(token.value),
+    parseOr([
+      parseMap(parseToken(Token.Identifier), token => token.value),
+      parseMap(
+        parseWhile(parseToken(Token.Symbol)),
+        (tokens, state) => {
+          const value = tokens.map(t => t.value).join('');
+
+          if (/\([\+\-\*\/]\)/.test(value)) {
+            return value;
+          }
+
+          throw error(state, 'identifier');
+        }
+      ),
+    ]),
+    value => new IdentifierExpression(value),
   )
 ;
 

@@ -25,6 +25,7 @@ export interface IServerDebugMessage extends IServerMessage {
 export interface IServerErrorMessage extends IServerMessage {
   type: ServerMessageType.Error;
   error: string;
+  evaluationState?: any;
 }
 
 export interface IServerSubscribeResponse extends IServerMessage {

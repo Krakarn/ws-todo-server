@@ -2,8 +2,12 @@ import { Expression } from '../lang/syntax';
 export { Expression } from '../lang/syntax';
 
 import { IEvaluationState } from '../lang/evaluation-state';
+import { ITypeDefinition, ITypeEvaluationState } from '../lang/type';
 
-const accessIdentifier = <T extends IEvaluationState, U>(identifier: string, state: T): U =>
+const accessIdentifier = <T extends IEvaluationState, U>(
+  identifier: string,
+  state: T,
+): U =>
   state.state[identifier]
 ;
 

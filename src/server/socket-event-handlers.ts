@@ -5,6 +5,7 @@ import { IEvaluationState } from '../lang/evaluation-state';
 import { IClient } from './client';
 import { stringToClientMessage } from './client-message';
 import { getClientMessageHandler } from './client-message-handlers';
+import { ClientMessageType } from './client-message-type';
 import {
   IServerErrorMessage,
   ServerMessageType,
@@ -24,7 +25,11 @@ const handleError = <T extends ITables, U extends IEvaluationState>(
   console.error('Client error:', error);
 };
 
-const _try = <T>(socket: WebSocket, f: (...args: any[]) => T): T => {
+const _try = <T extends ITables, U extends IEvaluationState, V>(
+  state: State<T, U>,
+  client: IClient,
+  f: (...args: any[]) => V,
+): V => {
   try {
     return f();
   } catch (e) {
@@ -38,7 +43,7 @@ const _try = <T>(socket: WebSocket, f: (...args: any[]) => T): T => {
       error
     };
 
-    socket.send(JSON.stringify(response));
+    client.socket.send(JSON.stringify(response));
   }
 };
 
@@ -54,7 +59,7 @@ const socketEventHandlers: {[event:string]: <T extends ITables, U extends IEvalu
   },
 
   [SocketEvent.Message]: (state, client, message) => {
-    _try(client.socket, () => {
+    _try(state, client, () => {
       const clientMessage = stringToClientMessage(
         message.toString(),
         stringToExpression,
@@ -69,7 +74,7 @@ const socketEventHandlers: {[event:string]: <T extends ITables, U extends IEvalu
       }
 
       setTimeout(() => {
-        _try(client.socket, () => {
+        _try(state, client, () => {
           const response = clientMessageHandler(state, client, clientMessage);
 
           client.socket.send(JSON.stringify(response));

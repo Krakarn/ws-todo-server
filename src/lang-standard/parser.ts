@@ -5,6 +5,7 @@ import {
 
 import { IEvaluationState } from '../lang/evaluation-state';
 import {
+  addHistory,
   error,
   IParser,
   IParserState,
@@ -77,13 +78,15 @@ const parseExpression = (
 ;
 
 const parseGroupWrapper =
-  parseMap(
-    parseGroup<Expression<any, any>>(
-      parseExpression(),
-      ignoreSurroundingWhitespace(parseToken(Token.Symbol, '(')),
-      ignoreSurroundingWhitespace(parseToken(Token.Symbol, ')')),
-    ),
-    expression => new GroupExpression(expression),
+  addHistory('group',
+    parseMap(
+      parseGroup<Expression<any, any>>(
+        parseExpression(),
+        ignoreSurroundingWhitespace(parseToken(Token.Symbol, '(')),
+        ignoreSurroundingWhitespace(parseToken(Token.Symbol, ')')),
+      ),
+      expression => new GroupExpression(expression),
+    )
   )
 ;
 
@@ -94,8 +97,27 @@ const parsePrimitive = tokenType =>
   )
 ;
 
-const parseNumberLiteral = parsePrimitive(Token.Number);
-const parseStringLiteral = parsePrimitive(Token.String);
+const parseNumberLiteral =
+  parseMap(
+    parsePrimitive(Token.Number),
+    (primitive, state) => {
+      addHistory(`number ${primitive.toString()}`)(state);
+
+      return primitive;
+    }
+  )
+;
+
+const parseStringLiteral =
+  parseMap(
+    parsePrimitive(Token.String),
+    (primitive, state) => {
+      addHistory(`string ${primitive.toString()}`)(state);
+
+      return primitive;
+    }
+  )
+;
 
 const parseKeywordLiteral =
   parseMap(
@@ -104,19 +126,25 @@ const parseKeywordLiteral =
       parseMap(parseToken(Token.Identifier, 'false'), constant(false)),
       parseMap(parseToken(Token.Identifier, 'null'), constant(null)),
     ]),
-    value => new PrimitiveExpression(value),
+    (value, state) => {
+      addHistory(`keyword ${value}`)(state);
+
+      return new PrimitiveExpression(value);
+    }
   )
 ;
 
 const parseListLiteral =
-  parseMap(
-    parseList<Expression<any, any>, any>(
-      parseExpression(),
-      ignoreSurroundingWhitespace(parseToken(Token.Symbol, ',')),
-      ignoreSurroundingWhitespace(parseToken(Token.Symbol, '[')),
-      ignoreSurroundingWhitespace(parseToken(Token.Symbol, ']')),
-    ),
-    expressions => new ListExpression(expressions)
+  addHistory('list',
+    parseMap(
+      parseList<Expression<any, any>, any>(
+        parseExpression(),
+        ignoreSurroundingWhitespace(parseToken(Token.Symbol, ',')),
+        ignoreSurroundingWhitespace(parseToken(Token.Symbol, '[')),
+        ignoreSurroundingWhitespace(parseToken(Token.Symbol, ']')),
+      ),
+      expressions => new ListExpression(expressions)
+    )
   )
 ;
 
@@ -136,11 +164,17 @@ const parseSymbol =
   )
 ;
 
+const symbolIdentifierTest = /[\%\+\-\*\/\.\,\=\<\>\&\|\$\^\!\?]+/;
+
 const parsePrefixSymbol =
   parseMap(
     parseSymbol,
     (identifier, state) => {
-      if(/\([\+\-\*\/\.\,\=\<\>\$\^\!\?]+\)/.test(identifier)) {
+      if(
+        identifier[0] === '(' &&
+        identifier[identifier.length - 1] === ')' &&
+        symbolIdentifierTest.test(identifier.slice(1, -1))
+      ) {
         return identifier;
       }
 
@@ -149,10 +183,27 @@ const parsePrefixSymbol =
   )
 ;
 
-const parseInfixIdentifier =
+const parseInfixSymbol =
   parseMap(
     parseSymbol,
-    value => new InfixIdentifierExpression(value)
+    (identifier, state) => {
+      if (symbolIdentifierTest.test(identifier)) {
+        return identifier;
+      }
+
+      throw error(state, 'identifier-infix');
+    }
+  )
+;
+
+const parseInfixIdentifier =
+  parseMap(
+    parseInfixSymbol,
+    (identifier, state) => {
+      addHistory(`identifier-infix ${identifier}`)(state);
+
+      return new InfixIdentifierExpression(identifier);
+    }
   )
 ;
 
@@ -162,89 +213,101 @@ const parsePrefixIdentifier =
       parseTokenValue(Token.Identifier),
       parsePrefixSymbol,
     ]),
-    value => new IdentifierExpression(value),
+    (value, state) => {
+      addHistory(`identifier-prefix ${value}`)(state);
+
+      return new IdentifierExpression(value);
+    }
   )
 ;
 
 const parseLet =
-  parseMap(
-    parseSequence<any>(
-      [
-        parseToken(Token.Identifier, 'let'),
-        parseMap(
-          parseToken(Token.Identifier),
-          token => token.value,
-        ),
-        parseToken(Token.Symbol, '='),
-        parseExpression(),
-        parseToken(Token.Identifier, 'in'),
-        parseExpression(),
-      ].map(ignoreSurroundingWhitespace)
-    ),
-    result => new LetExpression(
-      result[3],
-      new FunctionExpression(
-        result[1],
-        result[5],
-      )
-    ),
+  addHistory('let',
+    parseMap(
+      parseSequence<any>(
+        [
+          parseToken(Token.Identifier, 'let'),
+          parseMap(
+            parseToken(Token.Identifier),
+            token => token.value,
+          ),
+          parseToken(Token.Symbol, '='),
+          parseExpression(),
+          parseToken(Token.Identifier, 'in'),
+          parseExpression(),
+        ].map(ignoreSurroundingWhitespace)
+      ),
+      result => new LetExpression(
+        result[3],
+        new FunctionExpression(
+          result[1],
+          result[5],
+        )
+      ),
+    )
   )
 ;
 
 const parseFunction =
-  parseMap(
-    parseSequence<any>(
-      [
-        parseToken(Token.Symbol, '\\'),
-        parseMap(
-          parseToken(Token.Identifier),
-          token => token.value,
-        ),
-        parseSequence([
-          parseToken(Token.Symbol, '-'),
-          parseToken(Token.Symbol, '>'),
-        ]),
-        parseExpression(),
-      ].map(ignoreSurroundingWhitespace)
-    ),
-    result => new FunctionExpression(
-      result[1],
-      result[3],
+  addHistory('function',
+    parseMap(
+      parseSequence<any>(
+        [
+          parseToken(Token.Symbol, '\\'),
+          parseTokenValue(Token.Identifier),
+          parseSequence([
+            parseToken(Token.Symbol, '-'),
+            parseToken(Token.Symbol, '>'),
+          ]),
+          parseExpression(),
+        ].map(ignoreSurroundingWhitespace)
+      ),
+      result => new FunctionExpression(
+        result[1],
+        result[3],
+      )
     )
   )
 ;
 
 const parseInfixApply = state =>
-  parseMap(
-    parseSequence([
-      parseExpression([parseInfixApply]),
-      ignoreWhitespace,
-      parseInfixIdentifier,
-      ignoreWhitespace,
-      parseExpression(),
-    ]),
-    ([lhe, lws, infixFunction, rws, rhe]) =>
-      new ApplyExpression(
-        new ApplyInfixExpression(
-          infixFunction,
-          lhe,
-        ),
-        rhe,
-      )
+  addHistory('apply-infix',
+    parseMap(
+      parseSequence([
+        parseExpression([parseInfixApply]),
+        ignoreWhitespace,
+        parseInfixIdentifier,
+        ignoreWhitespace,
+        parseExpression(),
+      ]),
+      ([lhe, lws, infixFunction, rws, rhe]) =>
+        new ApplyExpression(
+          new ApplyInfixExpression(
+            infixFunction,
+            lhe,
+          ),
+          rhe,
+        )
+    )
   )(state)
 ;
 
 const parseApply = state =>
-  parseMap(
-    parseWhile(
-      parseExpression([parseApply, parseInfixApply]),
-    ),
-    expressions => expressions.slice(1).reduce((acc, expression) =>
-      new ApplyExpression(
-        acc,
-        expression,
-      ),
-      expressions[0]
+  addHistory('apply',
+    parseMap(
+      parseSequence([
+        parseExpression([parseApply, parseInfixApply]),
+        parseWhile(
+          parseExpression([parseApply, parseInfixApply]),
+        ),
+      ]),
+      ([f, es]) => es.reduce((acc, e) =>
+        new ApplyExpression(
+          acc,
+          e,
+        ),
+        f
+      )
     )
   )(state)
 ;

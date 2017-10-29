@@ -5,9 +5,55 @@ import {
 
 import { IToken } from './tokenizer';
 
+export type ITree<T> = {children: ITree<T>[]; value?: T};
+
+export const cloneTree = <T>(
+  tree: ITree<T>,
+  cloneValue: (value: T) => T = x => x,
+): ITree<T> =>
+  ({
+    value: cloneValue(tree.value),
+    children: tree.children.map(
+      child => cloneTree(child, cloneValue)
+    ),
+  })
+;
+
 export interface IParserState {
   tokens: IToken[];
+  history: ITree<string>;
 }
+
+export const addHistory = <T>(
+  value: string,
+  parser: IParser<T> = parseNothing as any,
+): IParser<T> => state => {
+  const parentHistory = state.history;
+  state.history = {value, children: []};
+
+  const result = parser(state);
+
+  parentHistory.children.push(state.history);
+  state.history = parentHistory;
+
+  return result;
+};
+
+const cloneParserState = (state: IParserState): IParserState => {
+  const clonedState: any = {};
+
+  writeState(state, clonedState);
+
+  return clonedState;
+};
+
+const writeState = (
+  sourceState: IParserState,
+  destinationState: IParserState
+) => {
+  destinationState.tokens = sourceState.tokens.slice();
+  destinationState.history = cloneTree(sourceState.history);
+};
 
 export interface IParserError extends Error {
   state?: IParserState;
@@ -42,14 +88,6 @@ export const parseSequence = <T>(
     []
   )
 ;
-
-const cloneParserState = state => ({
-  tokens: state.tokens.slice(),
-});
-
-const writeState = (sourceState: IParserState, destinationState: IParserState) => {
-  destinationState.tokens = sourceState.tokens.slice();
-};
 
 export const tryParse = parser => state => {
   const clonedState = cloneParserState(state);
@@ -353,13 +391,20 @@ const isParserError = (error: Error) => {
   );
 };
 
-export const parse = <T>(tokens: IToken[], parser: IParser<T>): T => {
+export const _parse = <T>(
+  tokens: IToken[],
+  parser: IParser<T>
+): { expression: T; state: IParserState } => {
   const state = {
     tokens,
+    history: {value: 'root', children: []},
   };
 
   try {
-    return parser(state);
+    return {
+      expression: parser(state),
+      state: state,
+    };
 
   } catch (e) {
     if (isParserError(e)) {
@@ -374,9 +419,24 @@ export const parse = <T>(tokens: IToken[], parser: IParser<T>): T => {
         ''
       ;
 
-      throw new Error(`${errorLocation}Unexpected ${tokenString} expected ${err.expected}`);
+      const rErr: any = new Error(
+        `${errorLocation}Unexpected ${tokenString} expected ${err.expected}`
+      );
+
+      rErr.state = state;
+
+      throw rErr;
     } else {
-      throw e;
+      const rErr: any = e;
+
+      rErr.state = state;
+
+      throw rErr;
     }
   }
 };
+
+export const parse = <T>(
+  tokens: IToken[],
+  parser: IParser<T>
+): T => _parse(tokens, parser).expression;

@@ -423,7 +423,7 @@ export const _parse = <T>(
         `${errorLocation}Unexpected ${tokenString} expected ${err.expected}`
       );
 
-      rErr.state = state;
+      rErr.state = e.state;
 
       throw rErr;
     } else {
@@ -435,6 +435,45 @@ export const _parse = <T>(
     }
   }
 };
+
+const spaces = (n: number) => {
+  let s = '';
+
+  for (let i=0; i<n; i++) { s += ' '; }
+
+  return s;
+};
+
+const parserHistoryToStringFlat = (h: any) =>
+  `${h.value
+  }${h.children.length > 0 ? `(${
+    h.children
+      .map(parserHistoryToStringFlat)
+      .join(',')
+  })` : ''}`
+;
+
+export const parserHistoryToString = (h: any, indent = 0) =>
+  `${spaces(indent * 2)}${h.value
+  }${h.children.length > 0 ?
+    `(\n${
+      h.children
+        .map(child => {
+          let out = parserHistoryToStringFlat(child);
+
+          if (out.length > 10) {
+            out = parserHistoryToString(child, indent + 1);
+          } else {
+            out = `${spaces((indent + 1) * 2)}${out}`;
+          }
+
+          return out;
+        })
+        .join(',\n')
+    }\n${spaces(indent * 2)})` :
+    ''
+  }`
+;
 
 export const parse = <T>(
   tokens: IToken[],

@@ -17,5 +17,5 @@ export const tokenRules: ITokenRule[] = [
   { name: Token.Number, test: /^-?[1-9][0-9]*\.?[0-9]*/, toValue: parseFloat },
   { name: Token.String, test: /^`([^`]*)`/ },
   { name: Token.Identifier, test: /^\w+/ },
-  { name: Token.Symbol, test: /^[\[\]\(\)\{\}\!\?\&\^\-\+\*\$\\\/\,\.\=\<\>]/ },
+  { name: Token.Symbol, test: /^[\[\]\(\)\{\}\!\?\&\^\-\+\*\$\\\/\,\.\=\<\>\:\;]/ },
 ];

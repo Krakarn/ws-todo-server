@@ -7,12 +7,19 @@
  */
 
 import {
-  EvaluationState
+  EvaluationState,
 } from '../src/lang-standard/evaluation-state';
+import {
+  TypeEvaluationState,
+  TypeExpression,
+} from '../src/lang/type';
+
+import { parserHistoryToString } from '../src/lang/parser';
 
 import {
   INativeLibrary,
-  loadLibrary as loadNativeLibrary
+  loadLibrary as loadNativeLibrary,
+  loadLibraryTypes as loadNativeLibraryTypes,
 } from '../src/lang-standard/lib/native';
 
 import {
@@ -24,8 +31,13 @@ import {
   ApplyInfixExpression,
   IdentifierExpression,
   InfixIdentifierExpression,
+  LetExpression,
   PrimitiveExpression,
 } from '../src/lang-standard/syntax';
+import {
+  StateIdentifierTypeExpression,
+  TypeIdentifierTypeExpression,
+} from '../src/lang-standard/type';
 
 const stringToEvaluation = (state: any, s: string) =>
   stringToExpression(s).evaluate(state)
@@ -33,9 +45,11 @@ const stringToEvaluation = (state: any, s: string) =>
 
 describe('lang-standard', () => {
   let state: EvaluationState;
+  let typeState: TypeEvaluationState;
 
   beforeEach(() => {
-    state = new EvaluationState();
+    state = loadNativeLibrary(new EvaluationState());
+    typeState = loadNativeLibraryTypes(new TypeEvaluationState());
   });
 
   describe('evaluation-state', () => {
@@ -60,7 +74,20 @@ describe('lang-standard', () => {
 
     const testParse = (s: string, it: Function) => {
       describe(s, () => {
-        beforeEach(() => expr = stringToExpression(s));
+        beforeEach(() => {
+          try {
+            expr = stringToExpression(s);
+          } catch(e) {
+            if (e.state) {
+              const parserHistory = e.state.history;
+              const parserHistoryString = parserHistoryToString(parserHistory);
+
+              throw new Error(`${e.message}; State: ${parserHistoryString}`);
+            } else {
+              throw e;
+            }
+          }
+        });
 
         it();
       });
@@ -70,6 +97,7 @@ describe('lang-standard', () => {
       const testParsePrimitive = (
         s: string,
         expected: any,
+        expectedTypeExpression: TypeExpression,
       ) => testParse(s, () => {
         it('should instantiate correctly', () => {
           expect(expr.constructor.name).toBe('PrimitiveExpression');
@@ -78,17 +106,24 @@ describe('lang-standard', () => {
           expect(expr.toString()).toBe(s);
         });
 
+        it('should evaluate to the expected type', () => {
+          const actualType = expr.evaluateType(typeState);
+          const expectedType = expectedTypeExpression.evaluate(typeState);
+
+          expect(actualType).toBe(expectedType);
+        });
+
         it('should evaluate to the expected value', () => {
           expect(expr.evaluate(state)).toBe(expected);
         });
       });
 
-      testParsePrimitive('1', 1);
-      testParsePrimitive('126.2367', 126.2367);
-      testParsePrimitive('`hello`', 'hello');
-      testParsePrimitive('true', true);
-      testParsePrimitive('false', false);
-      testParsePrimitive('null', null);
+      testParsePrimitive('1', 1, new TypeIdentifierTypeExpression('number'));
+      testParsePrimitive('126.2367', 126.2367, new TypeIdentifierTypeExpression('number'));
+      testParsePrimitive('`hello`', 'hello', new TypeIdentifierTypeExpression('string'));
+      testParsePrimitive('true', true, new TypeIdentifierTypeExpression('boolean'));
+      testParsePrimitive('false', false, new TypeIdentifierTypeExpression('boolean'));
+      testParsePrimitive('null', null, new TypeIdentifierTypeExpression('null'));
     });
 
     describe('IdentifierExpression', () => {
@@ -108,6 +143,19 @@ describe('lang-standard', () => {
             state.state[s] = value;
             expect(expr.evaluate(state)).toBe(value);
           });
+
+          it('should evaluate to the expected type', () => {
+            typeState.state[s] = typeState.types['number'];
+
+            const expectedTypeExpression = new TypeIdentifierTypeExpression(
+              'number'
+            );
+            const actualTypeExpression = new StateIdentifierTypeExpression(s);
+            const expectedType = expectedTypeExpression.evaluate(typeState);
+            const actualType = actualTypeExpression.evaluate(typeState);
+
+            expect(actualType).toBe(expectedType);
+          });
         });
       });
 
@@ -118,6 +166,33 @@ describe('lang-standard', () => {
         '(+)',
         '(-*+*-)'
       ].map(testParseIdentifier);
+    });
+
+    describe('LetExpression', () => {
+      const testParseLet = (
+        s: string,
+        expectedType: TypeExpression,
+      ) => testParse(s, () => {
+        it('should instantiate correctly', () => {
+          expect(expr.constructor.name).toBe('LetExpression');
+          expect(expr).toEqual(jasmine.any(LetExpression));
+          expect(expr.toString()).toBe(s);
+        });
+
+        it('should evaluate to the expected type', () => {
+          const expected = expectedType.evaluate(typeState);
+          const actual = expr.evaluateType(typeState);
+
+          expect(actual).toBe(expected);
+        });
+      });
+
+      testParseLet(
+        'let x = 3 in x', new TypeIdentifierTypeExpression('number')
+      );
+      testParseLet(
+        'let f = (\\x (any) -> x) in f `hello`', new TypeIdentifierTypeExpression('string')
+      );
     });
 
     describe('ApplyExpression', () => {
@@ -146,7 +221,7 @@ describe('lang-standard', () => {
         expect(a).toEqual(jasmine.any(PrimitiveExpression));
         expect(a.value).toBe(2);
 
-        const i = f.functionExpression as IdentifierExpression<any, any>;
+        const i = f.functionExpression as any;
         expect(i).toEqual(jasmine.any(IdentifierExpression));
         expect(i.identifier).toBe('(+)');
       });
@@ -183,7 +258,7 @@ describe('lang-standard', () => {
         expect(a).toEqual(jasmine.any(PrimitiveExpression));
         expect(a.value).toBe(2);
 
-        const i = f.functionExpression as InfixIdentifierExpression<any, any>;
+        const i = f.functionExpression as any;
         expect(i.constructor.name).toBe('InfixIdentifierExpression');
         expect(i).toEqual(jasmine.any(InfixIdentifierExpression));
         expect(i.identifier).toBe('+');
@@ -197,10 +272,6 @@ describe('lang-standard', () => {
   });
 
   describe('lib-native', () => {
-    beforeEach(() => {
-      state = loadNativeLibrary(state);
-    });
-
     const testEvaluate = (s: string, map: (e: any) => void) => {
       it(`should be able to evaluate ${s}`, () => {
         map(stringToEvaluation(state, s));

@@ -1,23 +1,33 @@
-import { Expression } from '../lang/syntax';
+import { accessIdentifier, Expression } from '../lang/syntax';
 export { Expression } from '../lang/syntax';
 
 import { IEvaluationState } from '../lang/evaluation-state';
-import { ITypeDefinition, ITypeEvaluationState } from '../lang/type';
+import {
+  TypedExpression,
+  TypeExpression,
+} from '../lang/type';
 
-const accessIdentifier = <T extends IEvaluationState, U>(
-  identifier: string,
-  state: T,
-): U =>
-  state.state[identifier]
-;
+import {
+  ApplyTypeExpression,
+  FunctionLabeledTypeExpression,
+  FunctionTypeExpression,
+  LetTypeExpression,
+  StateIdentifierTypeExpression,
+  TypeIdentifierTypeExpression,
+} from './type';
 
-export abstract class LiteralExpression<T extends IEvaluationState, U> extends Expression<T, U> {}
+export abstract class LiteralExpression<T extends IEvaluationState, U> extends TypedExpression<T, U, TypeExpression> {}
 
 export class PrimitiveExpression<T extends IEvaluationState, U> extends LiteralExpression<T, U> {
   public value: U;
+  public type: TypeIdentifierTypeExpression;
 
-  constructor(value: U) {
-    super();
+  constructor(
+    value: U,
+  ) {
+    const type = value === null ? 'null' : typeof value;
+    super(new TypeIdentifierTypeExpression(type));
+
     this.value = value;
   }
 
@@ -36,10 +46,13 @@ export class PrimitiveExpression<T extends IEvaluationState, U> extends LiteralE
 }
 
 export class ListExpression<T extends IEvaluationState, U> extends LiteralExpression<T, U[]> {
-  public expressions: Expression<T, U>[];
+  public expressions: TypedExpression<T, U, TypeExpression>[];
 
-  constructor(expressions: Expression<T, U>[]) {
-    super();
+  constructor(
+    expressions: TypedExpression<T, U, TypeExpression>[],
+  ) {
+    super(new TypeIdentifierTypeExpression('any'));
+
     this.expressions = expressions;
   }
 
@@ -56,11 +69,14 @@ export class ListExpression<T extends IEvaluationState, U> extends LiteralExpres
   }
 }
 
-export class IdentifierExpression<T extends IEvaluationState, U> extends Expression<T, U> {
+export class IdentifierExpression<T extends IEvaluationState, U> extends TypedExpression<T, U, StateIdentifierTypeExpression> {
   public identifier: string;
 
-  constructor(identifier: string) {
-    super();
+  constructor(
+    identifier: string,
+  ) {
+    super(new StateIdentifierTypeExpression(identifier));
+
     this.identifier = identifier;
   }
 
@@ -79,15 +95,23 @@ export class InfixIdentifierExpression<T extends IEvaluationState, U> extends Id
   }
 }
 
-export class LetExpression<T extends IEvaluationState, U, V> extends Expression<T, V> {
-  public boundExpression: Expression<T, U>;
+export class LetExpression<
+  T extends IEvaluationState,
+  U,
+  V,
+  W extends LetTypeExpression<any, any>
+> extends TypedExpression<T, V, W> {
+  public boundExpression: TypedExpression<T, U, W>;
   public functionExpression: FunctionExpression<T, U, V>;
 
   constructor(
-    boundExpression: Expression<T, U>,
+    boundExpression: TypedExpression<T, U, W>,
     functionExpression: FunctionExpression<T, U, V>,
   ) {
-    super();
+    super(new LetTypeExpression(
+      functionExpression.type,
+    ) as W);
+
     this.boundExpression = boundExpression;
     this.functionExpression = functionExpression;
   }
@@ -110,15 +134,22 @@ export class FunctionExpression<
   T extends IEvaluationState,
   U,
   V
-> extends Expression<T, (parameter: U) => V> {
+> extends TypedExpression<T, (parameter: U) => V, FunctionLabeledTypeExpression<any>> {
   public parameterIdentifier: string;
-  public bodyExpression: Expression<T, V>;
+  public bodyExpression: TypedExpression<T, V, TypeExpression>;
 
   constructor(
     parameterIdentifier: string,
-    bodyExpression: Expression<T, V>,
+    bodyExpression: TypedExpression<T, V, TypeExpression>,
+    parameterType: TypeExpression,
   ) {
-    super();
+    super(new FunctionLabeledTypeExpression(
+      parameterIdentifier,
+      new FunctionTypeExpression(
+        parameterType,
+        bodyExpression.type,
+      )
+    ));
 
     this.parameterIdentifier = parameterIdentifier;
     this.bodyExpression = bodyExpression;
@@ -135,18 +166,19 @@ export class FunctionExpression<
   }
 
   public toString() {
-    return `\\${this.parameterIdentifier} -> ${this.bodyExpression.toString()}`;
+    return `\\${this.parameterIdentifier} (${this.type.functionType.parameterType.toString()}) -> ${this.bodyExpression.toString()}`;
   }
 }
 
 export abstract class WrappedExpression<
   T extends IEvaluationState,
-  U
-> extends Expression<T, U> {
-  public innerExpression: Expression<T, U>;
+  U,
+  W extends TypeExpression = TypeExpression
+> extends TypedExpression<T, U, W> {
+  public innerExpression: TypedExpression<T, U, W>;
 
-  constructor(innerExpression: Expression<T, U>) {
-    super();
+  constructor(innerExpression: TypedExpression<T, U, W>) {
+    super(innerExpression.type);
 
     this.innerExpression = innerExpression;
   }
@@ -169,15 +201,18 @@ export class ApplyExpression<
   T extends IEvaluationState,
   U,
   V
-> extends Expression<T, V> {
-  public functionExpression: Expression<T, (u: U) => V>;
-  public argumentExpression: Expression<T, U>;
+> extends TypedExpression<T, V, ApplyTypeExpression<any>> {
+  public functionExpression: TypedExpression<T, (u: U) => V, FunctionLabeledTypeExpression<any>>;
+  public argumentExpression: TypedExpression<T, U, TypeExpression>;
 
   constructor(
-    functionExpression: Expression<T, (u: U) => V>,
-    argumentExpression: Expression<T, U>,
+    functionExpression: TypedExpression<T, (u: U) => V, FunctionLabeledTypeExpression<any>>,
+    argumentExpression: TypedExpression<T, U, TypeExpression>,
   ) {
-    super();
+    super(new ApplyTypeExpression(
+      functionExpression.type,
+      argumentExpression.type,
+    ));
 
     this.functionExpression = functionExpression;
     this.argumentExpression = argumentExpression;

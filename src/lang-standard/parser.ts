@@ -21,6 +21,7 @@ import {
   parseWhile,
 } from '../lang/parser';
 import { IToken } from '../lang/tokenizer';
+import { TypedExpression } from '../lang/type';
 
 import {
   ApplyExpression,
@@ -34,6 +35,12 @@ import {
   ListExpression,
   PrimitiveExpression,
 } from './syntax';
+import {
+  ApplyTypeExpression,
+  FunctionTypeExpression,
+  StateIdentifierTypeExpression,
+  TypeIdentifierTypeExpression,
+} from './type';
 
 import { Token } from './token-rules';
 
@@ -80,7 +87,7 @@ const parseExpression = (
 const parseGroupWrapper =
   addHistory('group',
     parseMap(
-      parseGroup<Expression<any, any>>(
+      parseGroup<TypedExpression<any, any, any>>(
         parseExpression(),
         ignoreSurroundingWhitespace(parseToken(Token.Symbol, '(')),
         ignoreSurroundingWhitespace(parseToken(Token.Symbol, ')')),
@@ -137,7 +144,7 @@ const parseKeywordLiteral =
 const parseListLiteral =
   addHistory('list',
     parseMap(
-      parseList<Expression<any, any>, any>(
+      parseList<TypedExpression<any, any, any>, any>(
         parseExpression(),
         ignoreSurroundingWhitespace(parseToken(Token.Symbol, ',')),
         ignoreSurroundingWhitespace(parseToken(Token.Symbol, '[')),
@@ -187,7 +194,10 @@ const parseInfixSymbol =
   parseMap(
     parseSymbol,
     (identifier, state) => {
-      if (symbolIdentifierTest.test(identifier)) {
+      if (
+        symbolIdentifierTest.test(identifier) &&
+        identifier !== '='
+      ) {
         return identifier;
       }
 
@@ -207,10 +217,21 @@ const parseInfixIdentifier =
   )
 ;
 
+const keywordTest = /true|false|null|let|in/;
+
 const parsePrefixIdentifier =
   parseMap(
     parseOr([
-      parseTokenValue(Token.Identifier),
+      parseMap(
+        parseTokenValue(Token.Identifier),
+        (value, state) => {
+          if (!keywordTest.test(value)) {
+            return value;
+          }
+
+          throw error(state, 'identifier');
+        }
+      ),
       parsePrefixSymbol,
     ]),
     (value, state) => {
@@ -221,16 +242,41 @@ const parsePrefixIdentifier =
   )
 ;
 
+const parseTypeIdentifier =
+  parseMap(
+    parseTokenValue(Token.Identifier),
+    identifier => new TypeIdentifierTypeExpression(identifier),
+  )
+;
+
+const parseTypeFunction = state =>
+  parseMap(
+    parseSequence<any>([
+      parseType([parseTypeFunction]),
+      parseSequence([
+        parseToken(Token.Symbol, '-'),
+        parseToken(Token.Symbol, '>'),
+      ]),
+      parseType(),
+    ]),
+    ([t1, arrow, t2]) => new FunctionTypeExpression(t1, t2)
+  )
+(state);
+
+const parseType = (parsersNotAllowed: IParser<any>[] = []) =>
+  parseOr([
+    parseTypeFunction,
+    parseTypeIdentifier,
+  ].filter(parser => parsersNotAllowed.every(p => p !== parser)))
+;
+
 const parseLet =
   addHistory('let',
     parseMap(
       parseSequence<any>(
         [
           parseToken(Token.Identifier, 'let'),
-          parseMap(
-            parseToken(Token.Identifier),
-            token => token.value,
-          ),
+          parseTokenValue(Token.Identifier),
           parseToken(Token.Symbol, '='),
           parseExpression(),
           parseToken(Token.Identifier, 'in'),
@@ -242,6 +288,7 @@ const parseLet =
         new FunctionExpression(
           result[1],
           result[5],
+          result[3].type
         )
       ),
     )
@@ -255,6 +302,9 @@ const parseFunction =
         [
           parseToken(Token.Symbol, '\\'),
           parseTokenValue(Token.Identifier),
+          parseToken(Token.Symbol, '('),
+          parseType(),
+          parseToken(Token.Symbol, ')'),
           parseSequence([
             parseToken(Token.Symbol, '-'),
             parseToken(Token.Symbol, '>'),
@@ -264,7 +314,8 @@ const parseFunction =
       ),
       result => new FunctionExpression(
         result[1],
-        result[3],
+        result[6],
+        result[3]
       )
     )
   )
@@ -285,7 +336,7 @@ const parseInfixApply = state =>
           new ApplyInfixExpression(
             infixFunction,
             lhe,
-          ),
+          ) as any,
           rhe,
         )
     )

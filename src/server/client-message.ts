@@ -8,6 +8,7 @@ import {
 import { ClientMessageType } from './client-message-type';
 
 export interface IClientMessage {
+  handle?: string;
   type: ClientMessageType;
 }
 

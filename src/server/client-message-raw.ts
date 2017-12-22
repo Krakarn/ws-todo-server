@@ -14,6 +14,7 @@ import { ClientMessageType } from './client-message-type';
 import { validators } from './client-message-validators';
 
 export interface IRawClientMessage {
+  handle?: string;
   type: ClientMessageType;
   [index:string]: any;
 }
@@ -37,12 +38,14 @@ export const convertRawClientMessage = <T extends IEvaluationState>(
   switch(rawClientMessage.type) {
     case ClientMessageType.Debug:
       return {
+        handle: rawClientMessage.handle,
         type: ClientMessageType.Debug,
         expression: stringToExpression(rawClientMessage.expression)
       } as IClientDebugMessage<T, any>;
 
     case ClientMessageType.Subscribe:
       return {
+        handle: rawClientMessage.handle,
         type: ClientMessageType.Subscribe,
         table: rawClientMessage.table,
         filter: rawClientMessage.filter ?
@@ -52,12 +55,14 @@ export const convertRawClientMessage = <T extends IEvaluationState>(
 
     case ClientMessageType.Unsubscribe:
       return {
+        handle: rawClientMessage.handle,
         type: ClientMessageType.Unsubscribe,
         subscriptionId: rawClientMessage.subscriptionId,
       } as IClientUnsubscribeMessage;
 
     case ClientMessageType.Create:
       return {
+        handle: rawClientMessage.handle,
         type: ClientMessageType.Create,
         table: rawClientMessage.table,
         item: rawClientMessage.item,
@@ -65,6 +70,7 @@ export const convertRawClientMessage = <T extends IEvaluationState>(
 
     case ClientMessageType.Update:
       return {
+        handle: rawClientMessage.handle,
         type: ClientMessageType.Update,
         table: rawClientMessage.table,
         item: rawClientMessage.item,
@@ -72,6 +78,7 @@ export const convertRawClientMessage = <T extends IEvaluationState>(
 
     case ClientMessageType.Delete:
       return {
+        handle: rawClientMessage.handle,
         type: ClientMessageType.Delete,
         table: rawClientMessage.table,
         id: rawClientMessage.id,

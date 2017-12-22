@@ -61,6 +61,7 @@ const clientMessageHandlers: {[type:string]:
       ;
 
       return {
+        handle: clientMessage.handle,
         type: ServerMessageType.Debug,
         message: value,
       } as IServerDebugMessage;
@@ -94,6 +95,7 @@ const clientMessageHandlers: {[type:string]:
     console.log(`Client ${client.id} subscribed`, serializedSubscription);
 
     return {
+      handle: clientMessage.handle,
       type: ServerMessageType.Subscribe,
       subscription: serializedSubscription,
     } as IServerSubscribeResponse;
@@ -114,6 +116,7 @@ const clientMessageHandlers: {[type:string]:
     console.log(`Client ${client.id} unsubscribed`, serializedSubscription);
 
     return {
+      handle: clientMessage.handle,
       type: ServerMessageType.Unsubscribe,
       subscription: serializedSubscription,
     } as IServerUnsubscribeResponse;

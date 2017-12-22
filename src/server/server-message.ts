@@ -14,6 +14,7 @@ export enum ServerMessageType {
 }
 
 export interface IServerMessage {
+  handle?: string;
   type: ServerMessageType;
 }
 

@@ -1,6 +1,7 @@
+import * as Rx from 'rxjs';
 import * as uuid from 'uuid/v4';
 
-import { start } from './server';
+import { server } from './server';
 import { ITables, State, StateCollection } from './server/state';
 
 import { TodoItem } from './state/todo-item';
@@ -11,13 +12,43 @@ interface IServerAppTables extends ITables {
   user: StateCollection<User>;
 }
 
-const tables: IServerAppTables = {
+const tablesMap: IServerAppTables = {
   todoItem: new StateCollection('todoItem'),
   user: new StateCollection('user'),
 };
 
-tables.user.create(new User(uuid(), 'admin'));
+const tables = Object.keys(tablesMap).map(k => tablesMap[k]);
 
-const state = new State<IServerAppTables, any>(tables);
+tablesMap.user.create(new User(uuid(), 'admin'));
 
-start(state);
+const state = new State<IServerAppTables, any>(tablesMap);
+
+const server$ = server(state);
+
+const events$ = Rx.Observable
+  .merge.apply(
+    Rx.Observable,
+    tables.map(
+      table => table.events$.map(
+        event => ({table: table, event: event})
+      )
+    ),
+  )
+;
+
+const printEvents$ = events$
+  .do(e => console.log('Table event: ', e))
+;
+
+const sideEffects$ = Rx.Observable
+  .merge(
+    server$,
+    printEvents$,
+  )
+;
+
+sideEffects$.subscribe(
+  () => {},
+  error => { console.error(error); },
+  () => { console.log('Server completed.'); },
+);

@@ -44,50 +44,71 @@ const ws$ = ws$subject.asObservable()
   })
 ;
 
-export const start = <T extends ITables, U extends IEvaluationState>(
+const rxConstant = <T>(sourceFn: () => Rx.Observable<T>) => Rx.Observable
+  .merge(
+    Rx.Observable.defer(sourceFn),
+    Rx.Observable.never(),
+  )
+  .share()
+;
+
+export const server = <T extends ITables, U extends IEvaluationState>(
   state: State<T, U>,
   options?: IServerOptions,
-) => {
+): Rx.Observable<ISocketEvent<any>> => {
   options = {...defaultOptions, ...options};
 
-  ws$.subscribe(({socket, socket$}) => {
-    const client: IClient = {
-      id: uuid(),
-      socket,
-    };
+  const server$ =
+    rxConstant(() => {
+      const s = new WebSocket.Server(options);
 
-    const socket$subscription = socket$.subscribe(
-      ({name, payload}) => {
-        const handler = getSocketEventHandler(name);
+      s.on('listening', () =>
+        console.log(`ws-todo-server listening on port ${options.port}`)
+      );
 
-        if (handler) {
-          handler(state, client, payload);
-        } else {
-          const errorHandler = getSocketEventHandler(SocketEvent.Error);
-          errorHandler(state, client, `Handler not found for event '${name}'.`);
-        }
-      },
-      error => {
-        const errorHandler = getSocketEventHandler(SocketEvent.Error);
-        errorHandler(state, client, `Handler not found for event '${name}'.`);
-      },
-      () => {
-        const closeHandler = getSocketEventHandler(SocketEvent.Close);
-        closeHandler(state, client);
-      },
-    );
-  });
+      s.on('connection', (ws, req) => {
+        ws$subject.next({
+          socket: ws,
+          request: req
+        });
+      });
 
-  const server = new WebSocket.Server(options);
+      return Rx.Observable.of(s);
+    })
+    .switchMap(server => ws$
+      .mergeMap(({socket, socket$}) => {
+        const client: IClient = {
+          id: uuid(),
+          socket,
+        };
 
-  server.on('listening', () =>
-    console.log(`ws-todo-server listening on port ${options.port}`)
-  );
+        return socket$
+          .do(({name, payload}) => {
+            const handler = getSocketEventHandler(name);
 
-  server.on('connection', (ws, req) => {
-    ws$subject.next({
-      socket: ws,
-      request: req
-    });
-  });
+            if (handler) {
+              handler(state, client, payload);
+            } else {
+              const errorHandler = getSocketEventHandler(SocketEvent.Error);
+              errorHandler(state, client, `Handler not found for event '${name}'.`);
+            }
+          })
+          .catch<ISocketEvent<any>, ISocketEvent<any>>(error => {
+            const errorHandler = getSocketEventHandler(SocketEvent.Error);
+            errorHandler(state, client, `Handler not found for event '${name}'.`);
+
+            throw error;
+          })
+          .finally(() => {
+            const closeHandler = getSocketEventHandler(SocketEvent.Close);
+            closeHandler(state, client);
+
+            return void 0;
+          })
+        ;
+      })
+    )
+  ;
+
+  return server$;
 };

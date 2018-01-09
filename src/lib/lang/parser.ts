@@ -1,7 +1,7 @@
 import {
   IObject,
   oMap,
-} from '../pure';
+} from '../pure/pure';
 
 import { IToken } from './tokenizer';
 

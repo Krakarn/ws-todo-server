@@ -1,19 +1,19 @@
 import * as Rx from 'rxjs';
 import * as uuid from 'uuid/v4';
 
-import { server } from './server';
-import { ITables, State, StateCollection } from './server/state';
+import { server } from './lib/server/server';
+import { ITables, State, StateCollection } from './lib/server/state';
 
-import { TodoItem } from './state/todo-item';
-import { User } from './state/user';
+import { Task } from './app/state/task';
+import { User } from './app/state/user';
 
 interface IServerAppTables extends ITables {
-  todoItem: StateCollection<TodoItem>;
+  task: StateCollection<Task>;
   user: StateCollection<User>;
 }
 
 const tablesMap: IServerAppTables = {
-  todoItem: new StateCollection('todoItem'),
+  task: new StateCollection('task'),
   user: new StateCollection('user'),
 };
 

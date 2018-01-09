@@ -3,14 +3,14 @@ import * as Rx from 'rxjs';
 import * as uuid from 'uuid/v4';
 import * as WebSocket from 'ws';
 
-import { IClient } from './server/client';
+import { IClient } from './client';
 
-import { ITables, State } from './server/state';
+import { ITables, State } from './state';
 
-import { ISocketEvent, SocketEvent } from './server/socket-event';
-import { getSocketEventHandler } from './server/socket-event-handlers';
+import { ISocketEvent, SocketEvent } from './socket-event';
+import { getSocketEventHandler } from './socket-event-handlers';
 
-import { IEvaluationState } from './lang/evaluation-state';
+import { IEvaluationState } from '../lang/evaluation-state';
 
 export interface IServerOptions {
   port?: number;

@@ -8,23 +8,23 @@
 
 import {
   EvaluationState,
-} from '../src/lang-standard/evaluation-state';
-import {
+} from '../src/lib/lang-standard/evaluation-state';
+/*import {
   TypeEvaluationState,
   TypeExpression,
-} from '../src/lang/type';
+} from '../src/lib/lang/type';*/
 
-import { parserHistoryToString } from '../src/lang/parser';
+import { parserHistoryToString } from '../src/lib/lang/parser';
 
 import {
   INativeLibrary,
   loadLibrary as loadNativeLibrary,
   loadLibraryTypes as loadNativeLibraryTypes,
-} from '../src/lang-standard/lib/native';
+} from '../src/lib/lang-standard/lib/native';
 
 import {
   stringToExpression
-} from '../src/lang-standard/string-to-expression';
+} from '../src/lib/lang-standard/string-to-expression';
 
 import {
   ApplyExpression,
@@ -33,11 +33,11 @@ import {
   InfixIdentifierExpression,
   LetExpression,
   PrimitiveExpression,
-} from '../src/lang-standard/syntax';
-import {
+} from '../src/lib/lang-standard/syntax';
+/*import {
   StateIdentifierTypeExpression,
   TypeIdentifierTypeExpression,
-} from '../src/lang-standard/type';
+} from '../src/lib/lang-standard/type';*/
 
 const stringToEvaluation = (state: any, s: string) =>
   stringToExpression(s).evaluate(state)
@@ -45,11 +45,11 @@ const stringToEvaluation = (state: any, s: string) =>
 
 describe('lang-standard', () => {
   let state: EvaluationState;
-  let typeState: TypeEvaluationState;
+  //let typeState: TypeEvaluationState;
 
   beforeEach(() => {
     state = loadNativeLibrary(new EvaluationState());
-    typeState = loadNativeLibraryTypes(new TypeEvaluationState());
+    //typeState = loadNativeLibraryTypes(new TypeEvaluationState());
   });
 
   describe('evaluation-state', () => {
@@ -97,7 +97,7 @@ describe('lang-standard', () => {
       const testParsePrimitive = (
         s: string,
         expected: any,
-        expectedTypeExpression: TypeExpression,
+        //expectedTypeExpression: TypeExpression,
       ) => testParse(s, () => {
         it('should instantiate correctly', () => {
           expect(expr.constructor.name).toBe('PrimitiveExpression');
@@ -106,24 +106,24 @@ describe('lang-standard', () => {
           expect(expr.toString()).toBe(s);
         });
 
-        it('should evaluate to the expected type', () => {
+        /*it('should evaluate to the expected type', () => {
           const actualType = expr.evaluateType(typeState);
           const expectedType = expectedTypeExpression.evaluate(typeState);
 
           expect(actualType).toBe(expectedType);
-        });
+        });*/
 
         it('should evaluate to the expected value', () => {
           expect(expr.evaluate(state)).toBe(expected);
         });
       });
 
-      testParsePrimitive('1', 1, new TypeIdentifierTypeExpression('number'));
-      testParsePrimitive('126.2367', 126.2367, new TypeIdentifierTypeExpression('number'));
-      testParsePrimitive('`hello`', 'hello', new TypeIdentifierTypeExpression('string'));
-      testParsePrimitive('true', true, new TypeIdentifierTypeExpression('boolean'));
-      testParsePrimitive('false', false, new TypeIdentifierTypeExpression('boolean'));
-      testParsePrimitive('null', null, new TypeIdentifierTypeExpression('null'));
+      testParsePrimitive('1', 1, /*new TypeIdentifierTypeExpression('number')*/);
+      testParsePrimitive('126.2367', 126.2367, /*new TypeIdentifierTypeExpression('number')*/);
+      testParsePrimitive('`hello`', 'hello', /*new TypeIdentifierTypeExpression('string')*/);
+      testParsePrimitive('true', true, /*new TypeIdentifierTypeExpression('boolean')*/);
+      testParsePrimitive('false', false, /*new TypeIdentifierTypeExpression('boolean')*/);
+      testParsePrimitive('null', null, /*new TypeIdentifierTypeExpression('null')*/);
     });
 
     describe('IdentifierExpression', () => {
@@ -144,7 +144,7 @@ describe('lang-standard', () => {
             expect(expr.evaluate(state)).toBe(value);
           });
 
-          it('should evaluate to the expected type', () => {
+          /*it('should evaluate to the expected type', () => {
             typeState.state[s] = typeState.types['number'];
 
             const expectedTypeExpression = new TypeIdentifierTypeExpression(
@@ -155,7 +155,7 @@ describe('lang-standard', () => {
             const actualType = actualTypeExpression.evaluate(typeState);
 
             expect(actualType).toBe(expectedType);
-          });
+          });*/
         });
       });
 
@@ -171,7 +171,7 @@ describe('lang-standard', () => {
     describe('LetExpression', () => {
       const testParseLet = (
         s: string,
-        expectedType: TypeExpression,
+        //expectedType: TypeExpression,
       ) => testParse(s, () => {
         it('should instantiate correctly', () => {
           expect(expr.constructor.name).toBe('LetExpression');
@@ -179,19 +179,19 @@ describe('lang-standard', () => {
           expect(expr.toString()).toBe(s);
         });
 
-        it('should evaluate to the expected type', () => {
+        /*it('should evaluate to the expected type', () => {
           const expected = expectedType.evaluate(typeState);
           const actual = expr.evaluateType(typeState);
 
           expect(actual).toBe(expected);
-        });
+        });*/
       });
 
       testParseLet(
-        'let x = 3 in x', new TypeIdentifierTypeExpression('number')
+        'let x = 3 in x', /*new TypeIdentifierTypeExpression('number')*/
       );
       testParseLet(
-        'let f = (\\x (any) -> x) in f `hello`', new TypeIdentifierTypeExpression('string')
+        'let f = (\\x (any) -> x) in f `hello`', /*new TypeIdentifierTypeExpression('string')*/
       );
     });
 

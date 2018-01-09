@@ -1,7 +1,7 @@
 import {
   constant,
   oMap,
-} from '../pure';
+} from '../pure/pure';
 
 import { IEvaluationState } from '../lang/evaluation-state';
 import {

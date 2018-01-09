@@ -2,7 +2,7 @@ import * as uuid from 'uuid/v4';
 
 import * as Rx from 'rxjs';
 
-import { oForEach } from '../pure';
+import { oForEach } from '../pure/pure';
 
 import { EvaluationState } from '../lang-standard/evaluation-state';
 import {
@@ -12,10 +12,10 @@ import {
 } from '../lang-standard/lib/native';
 import { IEvaluationState } from '../lang/evaluation-state';
 import { Expression } from '../lang/syntax';
-import {
+/*import {
   ITypeEvaluationState,
   TypeEvaluationState,
-} from '../lang/type';
+} from '../lang/type';*/
 
 import { IClient } from './client';
 import {
@@ -155,7 +155,7 @@ export class State<T extends ITables, U extends IEvaluationState> {
 
   public readonly evaluationState: EvaluationState &
     INativeLibrary<any>;
-  public readonly typeEvaluationState: ITypeEvaluationState;
+  //public readonly typeEvaluationState: ITypeEvaluationState;
 
   constructor(
     tables: T = {} as T,
@@ -164,7 +164,7 @@ export class State<T extends ITables, U extends IEvaluationState> {
     this.clients = {};
 
     this.evaluationState = this.createEvaluationState();
-    this.typeEvaluationState = this.createTypeEvaluationState();
+    //this.typeEvaluationState = this.createTypeEvaluationState();
   }
 
   public registerClient(client: IClient) {
@@ -299,9 +299,9 @@ export class State<T extends ITables, U extends IEvaluationState> {
     return loadNativeLibrary(eState);
   }
 
-  private createTypeEvaluationState() {
+  /*private createTypeEvaluationState() {
     const eState: ITypeEvaluationState = new TypeEvaluationState();
 
     return loadNativeLibraryTypes(eState);
-  }
+  }*/
 }

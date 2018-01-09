@@ -1,6 +1,6 @@
-import { IStateItem } from '../server/state';
+import { IStateItem } from '../../lib/server/state';
 
-export class TodoItem implements IStateItem {
+export class Task implements IStateItem {
   public readonly id: string;
   public userId: string;
 

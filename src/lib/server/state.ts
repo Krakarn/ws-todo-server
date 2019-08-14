@@ -61,7 +61,9 @@ export interface IStateCollectionDeleteEvent<T> extends IStateCollectionItemEven
 
 export const evaluationStateItemIdentifier = '__item';
 
-export class StateCollection<T extends IStateItemInternal> {
+export class StateCollection<
+  T extends IStateItemInternal
+> {
   public name: string;
   public list: T[];
 
@@ -76,7 +78,7 @@ export class StateCollection<T extends IStateItemInternal> {
   ) {
     this.name = name;
     this.list = [];
-    list.forEach(this.create.bind(this));
+    this.populate(list);
 
     this.events$pushSubject = new Rx.Subject();
     this.events$ = this.events$pushSubject
@@ -86,19 +88,28 @@ export class StateCollection<T extends IStateItemInternal> {
     this.events$.subscribe(this.events$pullSubject);
   }
 
-  public create(item: T) {
-    if (!item.id) {
-      const nextId = this.getNextId();
-      item.id = nextId;
-    }
+  public get(): T[] {
+    return this.list.slice();
+  }
 
-    this.list.push(item);
+  public create(item: Partial<T>) {
+    this.populate([item]);
 
     this.events$pushSubject.next({
       type: 'create',
       table: this.name,
-      item: item,
+      item: item as T,
     } as IStateCollectionCreateEvent<T>);
+  }
+
+  public populate(items: Partial<T>[]) {
+    items.forEach(item => {
+      if (!item.id) {
+        item.id = this.getNextId();
+      }
+    });
+
+    this.list = this.list.concat(items as T[]);
   }
 
   public delete(id: string) {
@@ -123,6 +134,10 @@ export class StateCollection<T extends IStateItemInternal> {
 
   public update(item: T) {
     const tableItem = this.list.find(i => item.id === i.id);
+
+    if (!tableItem) {
+      throw new Error(`Could not update ${this.name} with id ${item.id}`);
+    }
 
     oForEach((p, k) => tableItem[k] = p, item as any);
 
@@ -217,7 +232,6 @@ export class State<T extends ITables, U extends IEvaluationState> {
     ;
 
     if (filter) {
-
       rx = rx
         .filter(event => {
           if (

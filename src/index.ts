@@ -4,24 +4,21 @@ import * as uuid from 'uuid/v4';
 import { server } from './lib/server/server';
 import { ITables, State, StateCollection } from './lib/server/state';
 
-import { Task } from './app/state/task';
+import { SessionTable } from './app/tables/session-table';
+import { TableWithSession } from './app/tables/table-with-session';
+
+import { IServerAppTables, tables, tablesMap } from './app/tables/tables';
+
+import { Section } from './app/state/section';
 import { User } from './app/state/user';
 
-interface IServerAppTables extends ITables {
-  task: StateCollection<Task>;
-  user: StateCollection<User>;
-}
+tablesMap.user.list.push(new User(uuid(), 'admin', '1234'));
 
-const tablesMap: IServerAppTables = {
-  task: new StateCollection('task'),
-  user: new StateCollection('user'),
-};
+tablesMap.section.list.push(new Section(uuid(), 'All Sessions', 'session', true));
+tablesMap.section.list.push(new Section(uuid(), 'All Tasks', 'task', true));
+tablesMap.section.list.push(new Section(uuid(), 'All Users', 'user', true));
 
-const tables = Object.keys(tablesMap).map(k => tablesMap[k]);
-
-tablesMap.user.create(new User(uuid(), 'admin'));
-
-const state = new State<IServerAppTables, any>(tablesMap);
+const state = new State<IServerAppTables, any>(tablesMap as IServerAppTables);
 
 const server$ = server(state);
 
@@ -37,7 +34,7 @@ const events$ = Rx.Observable
 ;
 
 const printEvents$ = events$
-  .do(e => console.log('Table event: ', e))
+  .do(e => console.log('Table event:', e))
 ;
 
 const sideEffects$ = Rx.Observable
